@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, KeyboardAvoidingView, Platform, Modal, SafeAreaView, TextInput, Alert } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import axios from "axios";
-
 
 const API_URL = "https://eventick.onrender.com";
 
@@ -14,6 +13,8 @@ const RegisterScreen = () => {
   const [organizerStep, setOrganizerStep] = useState(1);
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -36,72 +37,157 @@ const RegisterScreen = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  {/**
-    const handleSubmit = () => {
-    if (userType === 'client') {
-      // Client registration - verify OTP
-      setShowOtpModal(true);
-    } else if (userType === 'organizer') {
-      if (organizerStep === 1) {
-        setOrganizerStep(2);
-      } else {
-        console.log('Organizer registration submitted', formData);
-      }
+  const resendOtp = async () => {
+    if (!formData.email) {
+      Alert.alert("Erreur", "Email requis");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await axios.post(`${API_URL}/api/auth/resend-otp`, {
+        email: formData.email,
+      });
+      Alert.alert("Succès", "Nouveau code envoyé !");
+    } catch (err: any) {
+      Alert.alert("Erreur", err.response?.data?.message || "Échec du renvoi");
+    } finally {
+      setLoading(false);
     }
   };
-    */}
 
+  // Gestion de l'inscription utilisateur (commun aux clients et organisateurs)
+  const handleUserRegistration = async () => {
+    try {
+      setLoading(true);
+      const payload = {
+        name: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        ...(userType === "organizer" && { role: "organizer" })
+      };
 
+      const res = await axios.post(`${API_URL}/api/auth/register`, payload);
+      setUserId(res.data.userId);
+      setShowOtpModal(true);
+      
+      if (res.data.isReturningUser) {
+        Alert.alert("Info", "Compte existant. Nouveau code envoyé !");
+      } else {
+        Alert.alert("Succès", res.data.message);
+      }
+      
+      return res.data;
 
+    } catch (err: any) {
+      const message = err.response?.data?.message || "Une erreur est survenue";
 
+      // Gestion des utilisateurs existants non vérifiés
+      if (message.includes("Utilisateur existe déjà")) {
+        const existingUserId = err.response?.data?.userId;
 
+        if (existingUserId) {
+          try {
+            await axios.post(`${API_URL}/api/auth/resend-otp`, {
+              email: formData.email,
+            });
+
+            setUserId(existingUserId);
+            setShowOtpModal(true);
+            Alert.alert("Info", "Compte existant. Nouveau code envoyé !");
+          } catch (resendErr: any) {
+            Alert.alert("Erreur", resendErr.response?.data?.message || "Impossible de renvoyer OTP");
+          }
+        } else {
+          Alert.alert("Erreur", "Utilisateur existant. Veuillez vous connecter.");
+        }
+      } else {
+        Alert.alert("Erreur", message);
+      }
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Gestion de l'inscription organisateur
+  const handleOrganizerRegistration = async () => {
+    try {
+      setLoading(true);
+      
+      // 1. Obtenir le token en se connectant
+      const loginRes = await axios.post(`${API_URL}/api/auth/login`, {
+        email: formData.email,
+        password: formData.password,
+      });
+
+      const token = loginRes.data.token;
+
+      console.log("email de l'organisateur : ", formData.email)
+      console.log("Password : ", formData.password)
+      console.log("Token Généré : ", token)
+
+      // 2. Envoyer les données organisateur
+      await axios.post(
+        `${API_URL}/api/organizers/register`,
+        {
+          companyName: formData.companyName,
+          address: formData.address,
+          phone: formData.phone,
+          type: formData.organizerType,
+          socialMedia: formData.socialMedia,
+          description: formData.description,
+          contactEmail: formData.email,
+          categories: [],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      Alert.alert("Succès", "Compte organisateur créé !");
+      router.replace("/(tabs-organisateur)/dashboard");
+
+    } catch (err: any) {
+      Alert.alert("Erreur", err.response?.data?.message || "Échec de création");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Soumission principale
   const handleSubmit = async () => {
     if (userType === "client") {
       try {
-        const res = await axios.post(`${API_URL}/api/auth/register`, {
-          name: formData.fullName,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
-        });
-
-        setUserId(res.data.userId);
-        setShowOtpModal(true);
-        Alert.alert("Succès", res.data.message);
-
-      } catch (err: any) {
-        const message = err.response?.data?.message || "Une erreur est survenue";
-
-        if (message.includes("Utilisateur existe déjà")) {
-          const existingUserId = err.response?.data?.userId;
-
-          if (existingUserId) {
-            try {
-              await axios.post(`${API_URL}/api/auth/resend-otp`, { userId: existingUserId });
-
-              setUserId(existingUserId);
-              setShowOtpModal(true);
-              Alert.alert("Info", "Compte déjà créé mais non vérifié. Nouveau code OTP envoyé !");
-            } catch (resendErr: any) {
-              Alert.alert("Erreur", resendErr.response?.data?.message || "Impossible de renvoyer le code OTP");
-            }
-          } else {
-            Alert.alert("Erreur", "Utilisateur déjà existant. Veuillez vous connecter.");
-          }
-        } else {
-          Alert.alert("Erreur", message);
+        await handleUserRegistration();
+      } catch (error) {
+        console.error("Erreur inscription client", error);
+      }
+    } else if (userType === "organizer") {
+      if (organizerStep === 1) {
+        try {
+          await handleUserRegistration();
+        } catch (error) {
+          console.error("Erreur inscription organisateur étape 1", error);
+        }
+      } else if (organizerStep === 2) {
+        try {
+          await handleOrganizerRegistration();
+        } catch (error) {
+          console.error("Erreur inscription organisateur étape 2", error);
         }
       }
     }
   };
 
-
-
-
   const verifyOtp = async () => {
     if (!userId) return;
 
     try {
+      setLoading(true);
       const res = await axios.post(`${API_URL}/api/auth/verify-otp`, {
         userId,
         otp,
@@ -110,8 +196,18 @@ const RegisterScreen = () => {
       Alert.alert("Succès", res.data.message);
       setShowOtpModal(false);
       setOtp("");
+
+      // Redirection après vérification
+      if (userType === "client") {
+        router.replace("/login");
+      } else if (userType === "organizer") {
+        setOrganizerStep(2);
+      }
+
     } catch (err: any) {
       Alert.alert("Erreur", err.response?.data?.message || "Code invalide");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -127,6 +223,7 @@ const RegisterScreen = () => {
         <TouchableOpacity
           className={`flex-row items-center p-6 mb-6 rounded-xl ${userType === 'client' ? 'bg-teal-400 border-2 border-teal-400' : 'bg-white/5 border border-white/10'}`}
           onPress={() => setUserType('client')}
+          disabled={loading}
         >
           <Ionicons name="person" size={32} color={userType === 'client' ? "#001215" : "#ec673b"} />
           <View className="ml-4">
@@ -142,6 +239,7 @@ const RegisterScreen = () => {
         <TouchableOpacity
           className={`flex-row items-center p-6 rounded-xl ${userType === 'organizer' ? 'bg-teal-400 border-2 border-teal-400' : 'bg-white/5 border border-white/10'}`}
           onPress={() => setUserType('organizer')}
+          disabled={loading}
         >
           <Ionicons name="business" size={32} color={userType === 'organizer' ? "#001215" : "#ec673b"} />
           <View className="ml-4">
@@ -157,12 +255,15 @@ const RegisterScreen = () => {
 
       {userType && (
         <TouchableOpacity
-          className="bg-teal-400 py-4 rounded-xl items-center"
+          className={`py-4 rounded-xl items-center ${loading ? 'bg-gray-500' : 'bg-teal-400'}`}
           onPress={() => {
             if (userType === 'organizer') setOrganizerStep(1);
           }}
+          disabled={loading}
         >
-          <Text className="text-gray-900 font-bold text-lg">Continuer</Text>
+          <Text className="text-gray-900 font-bold text-lg">
+            {loading ? "Chargement..." : "Continuer"}
+          </Text>
         </TouchableOpacity>
       )}
     </>
@@ -186,6 +287,7 @@ const RegisterScreen = () => {
             placeholderTextColor="#9CA3AF"
             value={formData.fullName}
             onChangeText={text => handleInputChange('fullName', text)}
+            editable={!loading}
           />
         </View>
       </View>
@@ -202,6 +304,7 @@ const RegisterScreen = () => {
             onChangeText={text => handleInputChange('email', text)}
             keyboardType="email-address"
             autoCapitalize="none"
+            editable={!loading}
           />
         </View>
       </View>
@@ -217,6 +320,7 @@ const RegisterScreen = () => {
             value={formData.phone}
             onChangeText={text => handleInputChange('phone', text)}
             keyboardType="phone-pad"
+            editable={!loading}
           />
         </View>
       </View>
@@ -232,16 +336,20 @@ const RegisterScreen = () => {
             secureTextEntry
             value={formData.password}
             onChangeText={text => handleInputChange('password', text)}
+            editable={!loading}
           />
         </View>
         <Text className="text-gray-500 text-xs mt-2">Minimum 6 caractères</Text>
       </View>
 
       <TouchableOpacity
-        className="bg-[#ec673b] py-4 rounded-xl items-center mb-6"
+        className={`py-4 rounded-xl items-center mb-6 ${loading ? 'bg-gray-500' : 'bg-[#ec673b]'}`}
         onPress={handleSubmit}
+        disabled={loading}
       >
-        <Text className="text-white font-bold text-lg">S'inscrire</Text>
+        <Text className="text-white font-bold text-lg">
+          {loading ? "Traitement..." : "S'inscrire"}
+        </Text>
       </TouchableOpacity>
     </>
   );
@@ -264,6 +372,7 @@ const RegisterScreen = () => {
             placeholderTextColor="#9CA3AF"
             value={formData.fullName}
             onChangeText={text => handleInputChange('fullName', text)}
+            editable={!loading}
           />
         </View>
       </View>
@@ -280,6 +389,7 @@ const RegisterScreen = () => {
             onChangeText={text => handleInputChange('email', text)}
             keyboardType="email-address"
             autoCapitalize="none"
+            editable={!loading}
           />
         </View>
       </View>
@@ -295,6 +405,7 @@ const RegisterScreen = () => {
             value={formData.phone}
             onChangeText={text => handleInputChange('phone', text)}
             keyboardType="phone-pad"
+            editable={!loading}
           />
         </View>
       </View>
@@ -310,16 +421,20 @@ const RegisterScreen = () => {
             secureTextEntry
             value={formData.password}
             onChangeText={text => handleInputChange('password', text)}
+            editable={!loading}
           />
         </View>
         <Text className="text-gray-500 text-xs mt-2">Minimum 6 caractères</Text>
       </View>
 
       <TouchableOpacity
-        className="bg-[#ec673b] py-4 rounded-xl items-center mb-6"
+        className={`py-4 rounded-xl items-center mb-6 ${loading ? 'bg-gray-500' : 'bg-[#ec673b]'}`}
         onPress={handleSubmit}
+        disabled={loading}
       >
-        <Text className="text-white font-bold text-lg">Continuer</Text>
+        <Text className="text-white font-bold text-lg">
+          {loading ? "Traitement..." : "Continuer"}
+        </Text>
       </TouchableOpacity>
     </>
   );
@@ -342,6 +457,7 @@ const RegisterScreen = () => {
             placeholderTextColor="#9CA3AF"
             value={formData.companyName}
             onChangeText={text => handleInputChange('companyName', text)}
+            editable={!loading}
           />
         </View>
       </View>
@@ -352,18 +468,21 @@ const RegisterScreen = () => {
           <TouchableOpacity
             className={`py-3 px-4 rounded-xl ${formData.organizerType === 'entreprise' ? 'bg-[#ec673b]' : 'bg-white/10'}`}
             onPress={() => handleInputChange('organizerType', 'entreprise')}
+            disabled={loading}
           >
             <Text className={formData.organizerType === 'entreprise' ? 'text-white' : 'text-white'}>Entreprise</Text>
           </TouchableOpacity>
           <TouchableOpacity
             className={`py-3 px-4 rounded-xl ${formData.organizerType === 'association' ? 'bg-[#ec673b]' : 'bg-white/10'}`}
             onPress={() => handleInputChange('organizerType', 'association')}
+            disabled={loading}
           >
             <Text className={formData.organizerType === 'association' ? 'text-white' : 'text-white'}>Association</Text>
           </TouchableOpacity>
           <TouchableOpacity
             className={`py-3 px-4 rounded-xl ${formData.organizerType === 'particulier' ? 'bg-[#ec673b]' : 'bg-white/10'}`}
             onPress={() => handleInputChange('organizerType', 'particulier')}
+            disabled={loading}
           >
             <Text className={formData.organizerType === 'particulier' ? 'text-white' : 'text-white'}>Particulier</Text>
           </TouchableOpacity>
@@ -380,6 +499,7 @@ const RegisterScreen = () => {
             placeholderTextColor="#9CA3AF"
             value={formData.address}
             onChangeText={text => handleInputChange('address', text)}
+            editable={!loading}
           />
         </View>
       </View>
@@ -394,6 +514,7 @@ const RegisterScreen = () => {
             placeholderTextColor="#9CA3AF"
             value={formData.rib}
             onChangeText={text => handleInputChange('rib', text)}
+            editable={!loading}
           />
         </View>
       </View>
@@ -408,6 +529,7 @@ const RegisterScreen = () => {
             placeholderTextColor="#9CA3AF"
             value={formData.socialMedia}
             onChangeText={text => handleInputChange('socialMedia', text)}
+            editable={!loading}
           />
         </View>
       </View>
@@ -422,6 +544,7 @@ const RegisterScreen = () => {
             multiline
             value={formData.description}
             onChangeText={text => handleInputChange('description', text)}
+            editable={!loading}
           />
         </View>
       </View>
@@ -432,7 +555,10 @@ const RegisterScreen = () => {
         {formData.organizerType === 'particulier' ? (
           <View className="mb-3">
             <Text className="text-gray-500 mb-2">Pièce d'identité (CIN/Passeport)</Text>
-            <TouchableOpacity className="bg-white/10 rounded-xl p-4 items-center">
+            <TouchableOpacity 
+              className="bg-white/10 rounded-xl p-4 items-center"
+              disabled={loading}
+            >
               <Ionicons name="cloud-upload" size={32} color="#ec673b" />
               <Text className="text-white mt-2">Télécharger la pièce d'identité</Text>
             </TouchableOpacity>
@@ -441,14 +567,20 @@ const RegisterScreen = () => {
           <View>
             <View className="mb-3">
               <Text className="text-gray-500 mb-2">Registre de commerce</Text>
-              <TouchableOpacity className="bg-white/10 rounded-xl p-4 items-center">
+              <TouchableOpacity 
+                className="bg-white/10 rounded-xl p-4 items-center"
+                disabled={loading}
+              >
                 <Ionicons name="cloud-upload" size={32} color="#ec673b" />
                 <Text className="text-white mt-2">Télécharger le registre</Text>
               </TouchableOpacity>
             </View>
             <View>
               <Text className="text-gray-500 mb-2">Pièce d'identité du représentant</Text>
-              <TouchableOpacity className="bg-white/10 rounded-xl p-4 items-center">
+              <TouchableOpacity 
+                className="bg-white/10 rounded-xl p-4 items-center"
+                disabled={loading}
+              >
                 <Ionicons name="cloud-upload" size={32} color="#ec673b" />
                 <Text className="text-white mt-2">Télécharger la pièce d'identité</Text>
               </TouchableOpacity>
@@ -458,10 +590,13 @@ const RegisterScreen = () => {
       </View>
 
       <TouchableOpacity
-        className="bg-[#ec673b] py-4 rounded-xl items-center mb-6"
+        className={`py-4 rounded-xl items-center mb-6 ${loading ? 'bg-gray-500' : 'bg-[#ec673b]'}`}
         onPress={handleSubmit}
+        disabled={loading}
       >
-        <Text className="text-white font-bold text-lg">Soumettre pour vérification</Text>
+        <Text className="text-white font-bold text-lg">
+          {loading ? "Soumission..." : "Soumettre pour vérification"}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -504,6 +639,7 @@ const RegisterScreen = () => {
               <TouchableOpacity
                 className="mt-6 flex-row items-center justify-center"
                 onPress={() => setUserType(null)}
+                disabled={loading}
               >
                 <Ionicons name="arrow-back" size={20} color="#ec673b" />
                 <Text className="text-[#ec673b] ml-2">Changer le type de compte</Text>
@@ -526,7 +662,7 @@ const RegisterScreen = () => {
             <View className="mt-8 flex-row justify-center">
               <Text className="text-gray-400">Vous avez déjà un compte?</Text>
               <Link href="/login" asChild>
-                <TouchableOpacity className="ml-2">
+                <TouchableOpacity className="ml-2" disabled={loading}>
                   <Text className="text-[#ec673b] font-bold">Se connecter</Text>
                 </TouchableOpacity>
               </Link>
@@ -566,22 +702,29 @@ const RegisterScreen = () => {
                         if (newOtp.length === 6) verifyOtp();
                       }
                     }}
+                    editable={!loading}
                   />
                 ))}
               </View>
 
               <TouchableOpacity
-                className="bg-[#ec673b] py-3 rounded-xl items-center mb-4"
+                className={`py-3 rounded-xl items-center mb-4 ${loading ? 'bg-gray-500' : 'bg-[#ec673b]'}`}
                 onPress={verifyOtp}
+                disabled={loading}
               >
-                <Text className="text-white font-bold">Vérifier</Text>
+                <Text className="text-white font-bold">
+                  {loading ? "Vérification..." : "Vérifier"}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 className="items-center"
-                onPress={() => alert("Code renvoyé!")}
+                onPress={resendOtp}
+                disabled={loading}
               >
-                <Text className="text-[#ec673b]">Renvoyer le code</Text>
+                <Text className={`${loading ? 'text-gray-500' : 'text-[#ec673b]'}`}>
+                  Renvoyer le code
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
