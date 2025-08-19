@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, TextInput, ScrollView, Image, Animated, Platform } from 'react-native';
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, TextInput, ScrollView, Image, Animated, Platform, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Types
 type EventStatus = 'published' | 'draft' | 'completed';
@@ -22,75 +23,21 @@ interface Event {
   date: string;
   time: string;
   location: string;
-  status: EventStatus;
   tickets: TicketType[];
   category: string;
   image?: any;
+  status: EventStatus;
+  totalTickets: number;
+  availableTickets: number;
+  description: string;
+  isActive: boolean;
+  totalRevenue?: number;
 }
 
 const OrganizerEvents = () => {
   const router = useRouter();
-  const [events, setEvents] = useState<Event[]>([
-    {
-      id: '1',
-      title: 'Festival des Dattes',
-      date: '15 Oct 2023',
-      time: '18:00 - 00:00',
-      location: 'Nouakchott',
-      status: 'published',
-      category: 'culture',
-      image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
-      tickets: [
-        { id: 't1', name: 'Standard', price: 1500, quantity: 500, sold: 245 },
-        { id: 't2', name: 'VIP', price: 3000, quantity: 100, sold: 45 }
-      ]
-    },
-    {
-      id: '2',
-      title: 'Match de Football',
-      date: '20 Oct 2023',
-      time: '14:00 - 16:00',
-      location: 'Nouadhibou',
-      status: 'draft',
-      category: 'sport',
-      image: 'https://images.unsplash.com/photo-1533750349088-cd871a92f312?auto=format&fit=crop&w=800&q=80',
-      tickets: [
-        { id: 't1', name: 'Tribune Nord', price: 2000, quantity: 300, sold: 0 },
-        { id: 't2', name: 'Tribune Sud', price: 2000, quantity: 300, sold: 0 },
-        { id: 't3', name: 'VIP', price: 5000, quantity: 50, sold: 0 }
-      ]
-    },
-    {
-      id: '3',
-      title: 'Conférence Tech',
-      date: '25 Sept 2023',
-      time: '09:00 - 17:00',
-      location: 'Atar',
-      status: 'completed',
-      category: 'business',
-      image: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=800&q=80',
-      tickets: [
-        { id: 't1', name: 'Early Bird', price: 500, quantity: 100, sold: 100 },
-        { id: 't2', name: 'Standard', price: 1000, quantity: 200, sold: 200 }
-      ]
-    },
-    {
-      id: '4',
-      title: 'Concert National',
-      date: '5 Nov 2023',
-      time: '20:00 - 23:30',
-      location: 'Kaédi',
-      status: 'published',
-      category: 'concerts',
-      image: 'https://cdn.pixabay.com/photo/2020/01/15/17/38/fireworks-4768501_1280.jpg',
-      tickets: [
-        { id: 't1', name: 'Général', price: 2500, quantity: 1000, sold: 650 },
-        { id: 't2', name: 'Gold', price: 5000, quantity: 200, sold: 200 }
-      ]
-    }
-  ]);
-
-  const [filteredEvents, setFilteredEvents] = useState<Event[]>(events);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<EventStatus | 'all'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -98,23 +45,110 @@ const OrganizerEvents = () => {
   const [activeTab, setActiveTab] = useState<'events' | 'tickets' | 'analytics'>('events');
   const [isSortModalVisible, setIsSortModalVisible] = useState(false);
   const [sortOption, setSortOption] = useState<'date' | 'popularity' | 'revenue'>('date');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
 
   // Catégories pour les filtres
   const categories = [
     { id: 'all', name: 'Toutes catégories', icon: 'grid' },
-    { id: 'culture', name: 'Culture', icon: 'brush' },
-    { id: 'sport', name: 'Sport', icon: 'football' },
-    { id: 'business', name: 'Business', icon: 'briefcase' },
-    { id: 'concerts', name: 'Concerts', icon: 'musical-notes' },
+    { id: 'Concert', name: 'Concert', icon: 'musical-notes' },
+    { id: 'Sport', name: 'Sport', icon: 'football' },
+    { id: 'Culture', name: 'Culture', icon: 'brush' },
+    { id: 'Business', name: 'Business', icon: 'briefcase' },
+    { id: 'Autre', name: 'Autre', icon: 'ellipse' },
   ];
 
-  const statusOptions = [
-    { id: 'all', name: 'Tous statuts', icon: 'list' },
-    { id: 'published', name: 'Publié', icon: 'eye' },
-    { id: 'draft', name: 'Brouillon', icon: 'document' },
-    { id: 'completed', name: 'Terminé', icon: 'checkmark-done' },
-  ];
+  // Fonction pour récupérer les événements depuis l'API
+  const fetchEvents = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Erreur", "Token d'authentification manquant");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch('https://eventick.onrender.com/api/events/organizer/my-events', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Transformer les données de l'API pour correspondre à notre interface
+      const transformedEvents: Event[] = data.map((event: any) => {
+        // Déterminer le statut basé sur isActive et la date
+        let status: EventStatus = 'draft';
+        const eventDate = new Date(event.date);
+        const now = new Date();
+        
+        if (event.isActive) {
+          status = eventDate > now ? 'published' : 'completed';
+        }
+
+        // Transformer les tickets
+        const tickets: TicketType[] = event.ticket.map((ticket: any) => ({
+          id: ticket._id,
+          name: ticket.type,
+          price: 0, // L'API ne semble pas fournir de prix, à adapter si disponible
+          quantity: ticket.totalTickets,
+          sold: ticket.totalTickets - ticket.availableTickets,
+        }));
+
+        return {
+          id: event._id,
+          title: event.title,
+          description: event.description,
+          date: new Date(event.date).toLocaleDateString('fr-FR', { 
+            day: 'numeric', 
+            month: 'short', 
+            year: 'numeric' 
+          }),
+          time: new Date(event.time).toLocaleTimeString('fr-FR', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+          location: event.location,
+          category: event.category,
+          image: event.image,
+          status: status,
+          isActive: event.isActive,
+          totalTickets: event.totalTickets,
+          availableTickets: event.availableTickets,
+          tickets: tickets,
+          totalRevenue: tickets.reduce((total, ticket) => total + (ticket.price * ticket.sold), 0),
+        };
+      });
+
+      setEvents(transformedEvents);
+      setFilteredEvents(transformedEvents);
+    } catch (error) {
+      console.error('Erreur lors de la récupération des événements:', error);
+      Alert.alert("Erreur", "Impossible de charger les événements");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Charger les événements au montage du composant
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  // Rafraîchir manuellement
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchEvents();
+  };
 
   // Calculer le revenu total pour un événement
   const calculateTotalRevenue = (tickets: TicketType[]) => {
@@ -163,11 +197,31 @@ const OrganizerEvents = () => {
     setIsSortModalVisible(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setEvents(events.filter(event => event.id !== id));
-  };
+    
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const response = await fetch(`https://eventick.onrender.com/api/events/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
+      if (response.ok) {
+        // Mettre à jour la liste des événements localement
+        setEvents(events.filter(event => event.id !== id));
+        Alert.alert("Succès", "Événement supprimé avec succès");
+      } else {
+        Alert.alert("Erreur", "Échec de la suppression de l'événement");
+      }
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
+      Alert.alert("Erreur", "Une erreur s'est produite lors de la suppression");
+    }
+  };
 
   const handleCreateEvent = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -186,38 +240,42 @@ const OrganizerEvents = () => {
   // Effet pour appliquer les filtres lors des changements
   useEffect(() => {
     applyFilters();
-  }, [searchQuery, sortOption]);
+  }, [searchQuery, sortOption, events]);
 
   // Rendu d'un événement
   const renderEventItem = ({ item }: { item: Event }) => {
     const totalRevenue = calculateTotalRevenue(item.tickets);
     const totalSold = item.tickets.reduce((sum, ticket) => sum + ticket.sold, 0);
     const totalTickets = item.tickets.reduce((sum, ticket) => sum + ticket.quantity, 0);
-    const progress = (totalSold / totalTickets) * 100;
+    const progress = totalTickets > 0 ? (totalSold / totalTickets) * 100 : 0;
+
+    // Image par défaut si aucune image n'est fournie
+    const imageSource = item.image 
+      ? { uri: item.image } 
+      : { uri: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80' };
 
     return (
       <Animated.View style={{ opacity: fadeAnim }} className="bg-white/5 rounded-xl p-4 mb-4 overflow-hidden">
         {/* En-tête avec image et statut */}
         <View className="flex-row">
           <Image 
-            source={{uri : item.image}} 
+            source={imageSource} 
             className="w-24 h-24 rounded-lg mr-4" 
           />
           
           <View className="flex-1">
             <View className="flex-row justify-between items-start mb-1">
               <Text className="text-white font-bold text-lg flex-1">{item.title}</Text>
-              <View className={`rounded-full px-3 py-1 ${
+              <View className={`px-2 py-1 rounded-full ${
                 item.status === 'published' ? 'bg-green-500/20' : 
-                item.status === 'draft' ? 'bg-yellow-500/20' : 
-                'bg-gray-500/20'
+                item.status === 'completed' ? 'bg-gray-500/20' : 'bg-yellow-500/20'
               }`}>
                 <Text className={`text-xs ${
                   item.status === 'published' ? 'text-green-400' : 
-                  item.status === 'draft' ? 'text-yellow-400' : 
-                  'text-gray-400'
+                  item.status === 'completed' ? 'text-gray-400' : 'text-yellow-400'
                 }`}>
-                  {item.status === 'published' ? 'Publié' : item.status === 'draft' ? 'Brouillon' : 'Terminé'}
+                  {item.status === 'published' ? 'Publié' : 
+                   item.status === 'completed' ? 'Terminé' : 'Brouillon'}
                 </Text>
               </View>
             </View>
@@ -265,7 +323,7 @@ const OrganizerEvents = () => {
         <View className="flex-row justify-between mt-4 border-t border-white/10 pt-3">
           <TouchableOpacity 
             className="flex-row items-center"
-            onPress={() => router.push("/EditEvent/[id]")}
+            onPress={() => router.push(`/EditEvent/${item.id}`)}
           >
             <Ionicons name="create" size={20} color="#68f2f4" />
             <Text className="text-teal-400 ml-1 text-xs">Modifier</Text>
@@ -273,7 +331,7 @@ const OrganizerEvents = () => {
           
           <TouchableOpacity 
             className="flex-row items-center"
-            onPress={() => router.push("/EventStatistics/[id]")}
+            onPress={() => router.push(`/EventStatistics/${item.id}`)}
           >
             <Ionicons name="analytics" size={20} color="#68f2f4" />
             <Text className="text-teal-400 ml-1 text-xs">Statistiques</Text>
@@ -291,6 +349,16 @@ const OrganizerEvents = () => {
     );
   };
 
+  if (loading) {
+    return (
+      <BackgroundWrapper>
+        <View className="flex-1 justify-center items-center">
+          <Text className="text-white text-lg">Chargement des événements...</Text>
+        </View>
+      </BackgroundWrapper>
+    );
+  }
+
   return (
     <BackgroundWrapper>
       <View className="flex-1 px-4 pt-16">
@@ -299,7 +367,7 @@ const OrganizerEvents = () => {
           <Text className="text-white text-2xl font-bold">Événements</Text>
           <TouchableOpacity 
             className="bg-teal-400 flex-row items-center py-2 px-4 rounded-full"
-            onPress={()=>router.push("/screens/CreateEvent")}
+            onPress={() => router.push("/screens/CreateEvent")}
           >
             <Ionicons name="add" size={20} color="#001215" />
             <Text className="text-gray-900 font-bold ml-2">Créer</Text>
@@ -369,6 +437,8 @@ const OrganizerEvents = () => {
             renderItem={renderEventItem}
             keyExtractor={item => item.id}
             contentContainerStyle={{ paddingBottom: 100 }}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
             ListEmptyComponent={
               <View className="bg-white/5 rounded-xl p-8 items-center justify-center mt-4">
                 <Ionicons name="calendar" size={48} color="#68f2f4" />
@@ -436,28 +506,48 @@ const OrganizerEvents = () => {
             
             {/* Filtre par statut */}
             <Text className="text-teal-400 font-medium mb-2">Statut</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
               <View className="flex-row">
-                {statusOptions.map(status => (
-                  <TouchableOpacity
-                    key={status.id}
-                    className={`p-3 rounded-xl mr-3 ${
-                      selectedStatus === status.id ? 'bg-teal-400' : 'bg-white/10'
-                    }`}
-                    onPress={() => setSelectedStatus(status.id as any)}
-                  >
-                    <View className="items-center">
-                      <Ionicons 
-                        name={status.icon as any} 
-                        size={24} 
-                        color={selectedStatus === status.id ? '#001215' : '#68f2f4'} 
-                      />
-                      <Text className={`mt-1 text-center ${selectedStatus === status.id ? 'text-gray-900 font-bold' : 'text-white'}`}>
-                        {status.name}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                <TouchableOpacity
+                  className={`p-3 rounded-xl mr-3 ${
+                    selectedStatus === 'all' ? 'bg-teal-400' : 'bg-white/10'
+                  }`}
+                  onPress={() => setSelectedStatus('all')}
+                >
+                  <Text className={selectedStatus === 'all' ? 'text-gray-900 font-bold' : 'text-white'}>
+                    Tous
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className={`p-3 rounded-xl mr-3 ${
+                    selectedStatus === 'published' ? 'bg-teal-400' : 'bg-white/10'
+                  }`}
+                  onPress={() => setSelectedStatus('published')}
+                >
+                  <Text className={selectedStatus === 'published' ? 'text-gray-900 font-bold' : 'text-white'}>
+                    Publiés
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className={`p-3 rounded-xl mr-3 ${
+                    selectedStatus === 'draft' ? 'bg-teal-400' : 'bg-white/10'
+                  }`}
+                  onPress={() => setSelectedStatus('draft')}
+                >
+                  <Text className={selectedStatus === 'draft' ? 'text-gray-900 font-bold' : 'text-white'}>
+                    Brouillons
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className={`p-3 rounded-xl mr-3 ${
+                    selectedStatus === 'completed' ? 'bg-teal-400' : 'bg-white/10'
+                  }`}
+                  onPress={() => setSelectedStatus('completed')}
+                >
+                  <Text className={selectedStatus === 'completed' ? 'text-gray-900 font-bold' : 'text-white'}>
+                    Terminés
+                  </Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
             

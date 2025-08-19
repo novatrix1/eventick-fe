@@ -16,8 +16,10 @@ import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
 import { Link, router } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = "https://eventick.onrender.com/api/auth/login";
+const API_URL = "https://eventick.onrender.com";
 
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -25,50 +27,56 @@ const LoginScreen = () => {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
-      return;
-    }
+  if (!email || !password) {
+    Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
+    return;
+  }
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+    const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
+    const { token, user } = response.data;
 
-      const data = await response.json();
+    console.log("Réponse login:", response.data);
 
-      if (!response.ok) {
-        Alert.alert("Erreur", data.message || "Échec de connexion");
-        setLoading(false);
-        return;
+    await AsyncStorage.setItem("token", token);
+
+    if (user.role === "organizer") {
+      // Vérifier si l'organisateur est certifié
+      try {
+        const organizerRes = await axios.get(`${API_URL}/api/organizers/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const isVerified = organizerRes.data.organizer?.isVerified ?? false;
+
+        if (isVerified) {
+          router.replace("/(tabs-organisateur)/dashboard");
+        } else {
+          Alert.alert(
+            "Compte non vérifié",
+            "Votre compte organisateur n'est pas encore vérifié."
+          );
+          router.replace("/(tabs-client)/home");
+        }
+      } catch (err) {
+        console.error("Erreur récupération organisateur:", err.response?.data || err.message);
+        Alert.alert("Erreur", "Impossible de récupérer le profil organisateur.");
       }
-
-      // Connexion réussie
-      console.log("Réponse API login:", data);
-
-      const { token, user } = data;
-
-   
-
-      if (user.role === "user") {
-        router.replace("/(tabs-client)/home");
-      } else if (user.role === "organizer") {
-        router.replace("/(tabs-organisateur)/dashboard");
-      } else {
-        Alert.alert("Erreur", "Rôle inconnu !");
-      }
-
-    } catch (error) {
-      console.error("Erreur login:", error);
-      Alert.alert("Erreur", "Une erreur est survenue. Réessayez.");
-    } finally {
-      setLoading(false);
+    } else if (user.role === "user") {
+      router.replace("/(tabs-client)/home");
+    } else {
+      Alert.alert("Erreur", "Rôle inconnu !");
     }
-  };
+  } catch (error: any) {
+    console.error("Erreur login:", error.response?.data || error.message);
+    Alert.alert("Erreur", error.response?.data?.message || "Échec de connexion");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleForgotPassword = () => {
     Alert.alert(

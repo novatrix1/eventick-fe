@@ -69,6 +69,12 @@ const RootLayout = () => {
                     }}
                 />
                 <Stack.Screen
+                    name='screens/OrganizerRegistrationScreen'
+                    options={{
+                        headerShown: false,
+                    }}
+                />
+                <Stack.Screen
                     name='screens/CreateEvent'
                     options={{
                         headerShown: false,

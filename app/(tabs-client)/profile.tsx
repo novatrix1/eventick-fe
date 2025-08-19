@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,10 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+
+const API_URL = "https://eventick.onrender.com";
 
 // Couleur principale
 const primaryColor = '#ec673b';
@@ -25,12 +29,19 @@ const helpOptions = [
 ];
 
 const ProfileScreen = () => {
-  const [userInfo] = useState({
-    name: 'Amadou Sow',
-    email: 'contact@amadousow.dev',
-    phone: '+222 12 34 56 78',
+  const [userInfo, setUserInfo] = useState({
+    name: '',
+    email: '',
+    phone: '',
     profileImage:
       'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
+    role: 'user', // Ajout du rôle
+  });
+
+  const [organizerStatus, setOrganizerStatus] = useState({
+    isOrganizer: false,
+    isVerified: false,
+    isLoading: true,
   });
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -38,6 +49,62 @@ const ProfileScreen = () => {
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        if (!token) return;
+
+        // Récupérer les infos utilisateur
+        const userRes = await axios.get(`${API_URL}/api/users/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        const { name, email, phone, role } = userRes.data.user;
+        setUserInfo({
+          name,
+          email,
+          phone,
+          role,
+          profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
+        });
+
+        // Vérifier le statut organisateur si l'utilisateur est organisateur
+        if (role === 'organizer') {
+          try {
+            const orgRes = await axios.get(`${API_URL}/api/organizers/profile`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            setOrganizerStatus({
+              isOrganizer: true,
+              isVerified: orgRes.data.organizer.isVerified,
+              isLoading: false,
+            });
+          } catch (error) {
+            console.error("Erreur profil organisateur:", error);
+            setOrganizerStatus({
+              isOrganizer: true,
+              isVerified: false,
+              isLoading: false,
+            });
+          }
+        } else {
+          setOrganizerStatus({
+            isOrganizer: false,
+            isVerified: false,
+            isLoading: false,
+          });
+        }
+      } catch (error) {
+        console.error("Erreur de chargement:", error);
+        setOrganizerStatus(prev => ({...prev, isLoading: false}));
+      }
+    };
+    
+    fetchUserInfo();
+  }, []);
 
   const navigateToHelp = (id: string) => {
     alert(`Navigation vers: ${id}`);
@@ -51,10 +118,6 @@ const ProfileScreen = () => {
   const deleteAccount = () => {
     setShowDeleteModal(false);
     alert('Votre compte a été supprimé.');
-  };
-
-  const logout = () => {
-    alert('Déconnexion réussie.');
   };
 
   return (
@@ -71,6 +134,17 @@ const ProfileScreen = () => {
               source={{ uri: userInfo.profileImage }}
               className="w-28 h-28 rounded-full border-4 border-[#ec673b]"
             />
+            
+            {/* Badge d'attente de vérification - Positionné sous la photo */}
+            {organizerStatus.isOrganizer && !organizerStatus.isVerified && (
+              <View className="mt-4 bg-orange-500/20 px-4 py-2 rounded-full flex-row items-center">
+                <Ionicons name="time" size={16} color="#f97316" className="mr-2" />
+                <Text className="text-orange-400 font-medium w-60 text-center">
+                  Compte organisateur en attente de vérification
+                </Text>
+              </View>
+            )}
+            
             <Text className="text-white text-2xl font-extrabold mt-5">
               {userInfo.name}
             </Text>
@@ -92,6 +166,44 @@ const ProfileScreen = () => {
                   Modifier le profil
                 </Text>
                 <Ionicons name="chevron-forward" size={22} color={primaryColor} />
+              </TouchableOpacity>
+
+              {/* Bouton "Devenir organisateur" TOUJOURS visible et actif */}
+              <TouchableOpacity
+                className="flex-row items-center p-4 border-t border-white/20"
+                onPress={() => {
+                  if (organizerStatus.isOrganizer && organizerStatus.isVerified) {
+                    router.replace("/(tabs-organisateur)/dashboard");
+                  } else {
+                    router.push('/screens/OrganizerRegistrationScreen');
+                  }
+                }}
+                activeOpacity={0.7}
+                disabled={organizerStatus.isLoading}
+              >
+                <Ionicons 
+                  name="business" 
+                  size={26} 
+                  color={organizerStatus.isLoading ? "#6b7280" : primaryColor} 
+                />
+                <Text 
+                  className={`flex-1 ml-4 text-lg font-semibold ${
+                    organizerStatus.isLoading ? "text-gray-500" : "text-white"
+                  }`}
+                >
+                  {organizerStatus.isLoading 
+                    ? "Chargement..." 
+                    : organizerStatus.isOrganizer && organizerStatus.isVerified
+                      ? "Naviguer vers organisateur"
+                      : "Devenir organisateur"}
+                </Text>
+                {!organizerStatus.isLoading && (
+                  <Ionicons 
+                    name="chevron-forward" 
+                    size={22} 
+                    color={primaryColor} 
+                  />
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -133,7 +245,7 @@ const ProfileScreen = () => {
 
             <TouchableOpacity
               className="flex-row items-center p-5 border-b border-white/20"
-              onPress={()=>router.replace("/(auth)/login")}
+              onPress={() => router.replace("/(auth)/login")}
               activeOpacity={0.7}
             >
               <Ionicons name="log-out" size={26} color="#FF6347" />

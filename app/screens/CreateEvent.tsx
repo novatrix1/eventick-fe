@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Platform, Image } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Platform, Image, Alert } from 'react-native'
 import React, { useState } from 'react'
 import BackgroundWrapper from '@/components/BackgroundWrapper'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
@@ -8,6 +8,11 @@ import * as ImagePicker from 'expo-image-picker'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { Dropdown } from 'react-native-element-dropdown';
+import axios from 'axios'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+
+
+const API_URL = "https://eventick.onrender.com";
 
 
 const CreateEvent = () => {
@@ -120,10 +125,45 @@ const CreateEvent = () => {
   }
 
   // Soumettre l'événement
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     // Ici, vous ajouteriez la logique pour sauvegarder l'événement
-    router.back()
+    //router.back()
+
+    try {
+      //setLoading(true);
+      const token = await AsyncStorage.getItem("token");
+      // 2. Envoyer les données organisateur
+
+      console.log("Le token gen : ", token)
+      console.log("l'image est : ", eventData.image)
+      await axios.post(
+        `${API_URL}/api/events`,
+        {
+          title: eventData.title,
+          description: eventData.description,
+          location: eventData.location,
+          date: eventData.date,
+          time: eventData.startTime,
+          price: 2000,
+          totalTickets: 50,
+          image: null,
+          category: eventData.category,
+          paymentMethods: "bankily"
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      Alert.alert("Succès", "Evenement créé !");
+      router.replace("/(tabs-organisateur)/events");
+
+    } catch (err: any) {
+      Alert.alert("Erreur", err.response?.data?.message || "Échec de création");
+    } 
   }
 
   // Formater la date pour l'affichage
