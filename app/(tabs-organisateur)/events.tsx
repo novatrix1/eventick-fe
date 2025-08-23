@@ -82,14 +82,14 @@ const OrganizerEvents = () => {
       }
 
       const data = await response.json();
-      
+
       // Transformer les données de l'API pour correspondre à notre interface
       const transformedEvents: Event[] = data.map((event: any) => {
         // Déterminer le statut basé sur isActive et la date
         let status: EventStatus = 'draft';
         const eventDate = new Date(event.date);
         const now = new Date();
-        
+
         if (event.isActive) {
           status = eventDate > now ? 'published' : 'completed';
         }
@@ -107,14 +107,14 @@ const OrganizerEvents = () => {
           id: event._id,
           title: event.title,
           description: event.description,
-          date: new Date(event.date).toLocaleDateString('fr-FR', { 
-            day: 'numeric', 
-            month: 'short', 
-            year: 'numeric' 
+          date: new Date(event.date).toLocaleDateString('fr-FR', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
           }),
-          time: new Date(event.time).toLocaleTimeString('fr-FR', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
+          time: new Date(event.time).toLocaleTimeString('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit'
           }),
           location: event.location,
           category: event.category,
@@ -158,25 +158,25 @@ const OrganizerEvents = () => {
   // Appliquer les filtres
   const applyFilters = () => {
     let result = [...events];
-    
+
     // Filtre par statut
     if (selectedStatus !== 'all') {
       result = result.filter(event => event.status === selectedStatus);
     }
-    
+
     // Filtre par catégorie
     if (selectedCategory !== 'all') {
       result = result.filter(event => event.category === selectedCategory);
     }
-    
+
     // Filtre par recherche
     if (searchQuery) {
-      result = result.filter(event => 
+      result = result.filter(event =>
         event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.location.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     // Appliquer le tri
     result.sort((a, b) => {
       if (sortOption === 'date') {
@@ -191,7 +191,7 @@ const OrganizerEvents = () => {
         return bRevenue - aRevenue;
       }
     });
-    
+
     setFilteredEvents(result);
     setIsFilterModalVisible(false);
     setIsSortModalVisible(false);
@@ -199,7 +199,7 @@ const OrganizerEvents = () => {
 
   const handleDelete = async (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
+
     try {
       const token = await AsyncStorage.getItem("token");
       const response = await fetch(`https://eventick.onrender.com/api/events/${id}`, {
@@ -250,36 +250,34 @@ const OrganizerEvents = () => {
     const progress = totalTickets > 0 ? (totalSold / totalTickets) * 100 : 0;
 
     // Image par défaut si aucune image n'est fournie
-    const imageSource = item.image 
-      ? { uri: item.image } 
+    const imageSource = item.image
+      ? { uri: item.image }
       : { uri: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80' };
 
     return (
       <Animated.View style={{ opacity: fadeAnim }} className="bg-white/5 rounded-xl p-4 mb-4 overflow-hidden">
         {/* En-tête avec image et statut */}
         <View className="flex-row">
-          <Image 
-            source={imageSource} 
-            className="w-24 h-24 rounded-lg mr-4" 
+          <Image
+            source={imageSource}
+            className="w-24 h-24 rounded-lg mr-4"
           />
-          
+
           <View className="flex-1">
             <View className="flex-row justify-between items-start mb-1">
               <Text className="text-white font-bold text-lg flex-1">{item.title}</Text>
-              <View className={`px-2 py-1 rounded-full ${
-                item.status === 'published' ? 'bg-green-500/20' : 
-                item.status === 'completed' ? 'bg-gray-500/20' : 'bg-yellow-500/20'
-              }`}>
-                <Text className={`text-xs ${
-                  item.status === 'published' ? 'text-green-400' : 
-                  item.status === 'completed' ? 'text-gray-400' : 'text-yellow-400'
+              <View className={`px-2 py-1 rounded-full ${item.status === 'published' ? 'bg-green-500/20' :
+                  item.status === 'completed' ? 'bg-gray-500/20' : 'bg-yellow-500/20'
                 }`}>
-                  {item.status === 'published' ? 'Publié' : 
-                   item.status === 'completed' ? 'Terminé' : 'Brouillon'}
+                <Text className={`text-xs ${item.status === 'published' ? 'text-green-400' :
+                    item.status === 'completed' ? 'text-gray-400' : 'text-yellow-400'
+                  }`}>
+                  {item.status === 'published' ? 'Publié' :
+                    item.status === 'completed' ? 'Terminé' : 'Brouillon'}
                 </Text>
               </View>
             </View>
-            
+
             {/* Date et lieu */}
             <View className="flex-row items-center mb-1">
               <Ionicons name="calendar" size={14} color="#68f2f4" />
@@ -289,7 +287,7 @@ const OrganizerEvents = () => {
               <Ionicons name="location" size={14} color="#68f2f4" />
               <Text className="text-teal-400 ml-2 text-xs">{item.location}</Text>
             </View>
-            
+
             {/* Barre de progression */}
             <View className="mt-2">
               <View className="flex-row justify-between mb-1">
@@ -301,16 +299,15 @@ const OrganizerEvents = () => {
                 </Text>
               </View>
               <View className="w-full bg-gray-700 rounded-full h-2">
-                <View 
-                  className={`h-2 rounded-full ${
-                    progress > 70 ? 'bg-green-500' : 
-                    progress > 30 ? 'bg-yellow-500' : 'bg-teal-400'
-                  }`} 
+                <View
+                  className={`h-2 rounded-full ${progress > 70 ? 'bg-green-500' :
+                      progress > 30 ? 'bg-yellow-500' : 'bg-teal-400'
+                    }`}
                   style={{ width: `${progress}%` }}
                 />
               </View>
             </View>
-            
+
             {/* Revenus */}
             <View className="flex-row justify-between items-center mt-2">
               <Text className="text-white font-bold text-sm">{totalRevenue.toLocaleString()} MRO</Text>
@@ -318,26 +315,26 @@ const OrganizerEvents = () => {
             </View>
           </View>
         </View>
-        
+
         {/* Actions */}
         <View className="flex-row justify-between mt-4 border-t border-white/10 pt-3">
-          <TouchableOpacity 
+          <TouchableOpacity
             className="flex-row items-center"
             onPress={() => router.push(`/EditEvent/${item.id}`)}
           >
             <Ionicons name="create" size={20} color="#68f2f4" />
             <Text className="text-teal-400 ml-1 text-xs">Modifier</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             className="flex-row items-center"
             onPress={() => router.push(`/EventStatistics/${item.id}`)}
           >
             <Ionicons name="analytics" size={20} color="#68f2f4" />
             <Text className="text-teal-400 ml-1 text-xs">Statistiques</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             className="flex-row items-center"
             onPress={() => handleDelete(item.id)}
           >
@@ -365,7 +362,7 @@ const OrganizerEvents = () => {
         {/* En-tête avec titre et bouton de création */}
         <View className="flex-row justify-between items-center mb-4">
           <Text className="text-white text-2xl font-bold">Événements</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             className="bg-teal-400 flex-row items-center py-2 px-4 rounded-full"
             onPress={() => router.push("/screens/CreateEvent")}
           >
@@ -373,7 +370,7 @@ const OrganizerEvents = () => {
             <Text className="text-gray-900 font-bold ml-2">Créer</Text>
           </TouchableOpacity>
         </View>
-        
+
         {/* Barre de recherche et filtres */}
         <View className="flex-row mb-4">
           <View className="flex-1 bg-white/10 rounded-xl px-4 py-2 mr-3 flex-row items-center">
@@ -386,108 +383,47 @@ const OrganizerEvents = () => {
               onChangeText={setSearchQuery}
             />
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             className="bg-teal-400/10 p-3 rounded-xl mr-2"
             onPress={() => setIsFilterModalVisible(true)}
           >
             <Ionicons name="filter" size={24} color="#68f2f4" />
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             className="bg-teal-400/10 p-3 rounded-xl"
             onPress={() => setIsSortModalVisible(true)}
           >
             <Ionicons name="swap-vertical" size={24} color="#68f2f4" />
           </TouchableOpacity>
         </View>
-        
-        {/* Onglets de navigation */}
-        <View className="flex-row justify-between bg-teal-400/10 rounded-xl p-1 mb-4">
-          <TouchableOpacity 
-            className={`flex-1 py-2 rounded-xl ${activeTab === 'events' ? 'bg-teal-400' : ''}`}
-            onPress={() => setActiveTab('events')}
-          >
-            <Text className={`text-center text-xs font-medium ${activeTab === 'events' ? 'text-gray-900' : 'text-teal-400'}`}>
-              Événements
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            className={`flex-1 py-2 rounded-xl ${activeTab === 'tickets' ? 'bg-teal-400' : ''}`}
-            onPress={() => setActiveTab('tickets')}
-          >
-            <Text className={`text-center text-xs font-medium ${activeTab === 'tickets' ? 'text-gray-900' : 'text-teal-400'}`}>
-              Billets
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            className={`flex-1 py-2 rounded-xl ${activeTab === 'analytics' ? 'bg-teal-400' : ''}`}
-            onPress={() => setActiveTab('analytics')}
-          >
-            <Text className={`text-center text-xs font-medium ${activeTab === 'analytics' ? 'text-gray-900' : 'text-teal-400'}`}>
-              Statistiques
-            </Text>
-          </TouchableOpacity>
-        </View>
-        
+
         {/* Liste des événements */}
-        {activeTab === 'events' ? (
-          <FlatList
-            data={filteredEvents}
-            renderItem={renderEventItem}
-            keyExtractor={item => item.id}
-            contentContainerStyle={{ paddingBottom: 100 }}
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            ListEmptyComponent={
-              <View className="bg-white/5 rounded-xl p-8 items-center justify-center mt-4">
-                <Ionicons name="calendar" size={48} color="#68f2f4" />
-                <Text className="text-white text-center mt-4">
-                  Aucun événement trouvé
-                </Text>
-                <Text className="text-teal-400 text-center mt-2">
-                  Créez votre premier événement
-                </Text>
-                <TouchableOpacity 
-                  className="mt-4 bg-teal-400 py-2 px-6 rounded-full"
-                  onPress={handleCreateEvent}
-                >
-                  <Text className="text-gray-900 font-bold">Créer un événement</Text>
-                </TouchableOpacity>
-              </View>
-            }
-          />
-        ) : activeTab === 'tickets' ? (
-          <View className="bg-white/5 rounded-xl p-4 mb-4">
-            <Text className="text-white font-bold text-lg mb-3">Gestion des billets</Text>
-            <Text className="text-teal-400 mb-4">
-              Consultez et gérez tous les billets vendus pour vos événements
-            </Text>
-            <TouchableOpacity 
-              className="bg-teal-400 py-3 rounded-full flex-row items-center justify-center"
-              onPress={() => router.push('/organizer/tickets')}
-            >
-              <Ionicons name="ticket" size={20} color="#001215" />
-              <Text className="text-gray-900 font-bold ml-2">Voir les billets</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View className="bg-white/5 rounded-xl p-4 mb-4">
-            <Text className="text-white font-bold text-lg mb-3">Statistiques</Text>
-            <Text className="text-teal-400 mb-4">
-              Analysez les performances de vos événements
-            </Text>
-            <TouchableOpacity 
-              className="bg-teal-400 py-3 rounded-full flex-row items-center justify-center"
-              onPress={() => router.push('/organizer/analytics')}
-            >
-              <Ionicons name="analytics" size={20} color="#001215" />
-              <Text className="text-gray-900 font-bold ml-2">Voir les statistiques</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <FlatList
+          data={filteredEvents}
+          renderItem={renderEventItem}
+          keyExtractor={item => item.id}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          ListEmptyComponent={
+            <View className="bg-white/5 rounded-xl p-8 items-center justify-center mt-4">
+              <Ionicons name="calendar" size={48} color="#68f2f4" />
+              <Text className="text-white text-center mt-4">
+                Aucun événement trouvé
+              </Text>
+              <Text className="text-teal-400 text-center mt-2">
+                Créez votre premier événement
+              </Text>
+              <TouchableOpacity
+                className="mt-4 bg-teal-400 py-2 px-6 rounded-full"
+                onPress={handleCreateEvent}
+              >
+                <Text className="text-gray-900 font-bold">Créer un événement</Text>
+              </TouchableOpacity>
+            </View>
+          }
+        />
       </View>
-      
       {/* Modal des filtres */}
       <Modal
         visible={isFilterModalVisible}
@@ -503,15 +439,14 @@ const OrganizerEvents = () => {
                 <Ionicons name="close" size={24} color="#68f2f4" />
               </TouchableOpacity>
             </View>
-            
+
             {/* Filtre par statut */}
             <Text className="text-teal-400 font-medium mb-2">Statut</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
               <View className="flex-row">
                 <TouchableOpacity
-                  className={`p-3 rounded-xl mr-3 ${
-                    selectedStatus === 'all' ? 'bg-teal-400' : 'bg-white/10'
-                  }`}
+                  className={`p-3 rounded-xl mr-3 ${selectedStatus === 'all' ? 'bg-teal-400' : 'bg-white/10'
+                    }`}
                   onPress={() => setSelectedStatus('all')}
                 >
                   <Text className={selectedStatus === 'all' ? 'text-gray-900 font-bold' : 'text-white'}>
@@ -519,9 +454,8 @@ const OrganizerEvents = () => {
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  className={`p-3 rounded-xl mr-3 ${
-                    selectedStatus === 'published' ? 'bg-teal-400' : 'bg-white/10'
-                  }`}
+                  className={`p-3 rounded-xl mr-3 ${selectedStatus === 'published' ? 'bg-teal-400' : 'bg-white/10'
+                    }`}
                   onPress={() => setSelectedStatus('published')}
                 >
                   <Text className={selectedStatus === 'published' ? 'text-gray-900 font-bold' : 'text-white'}>
@@ -529,9 +463,8 @@ const OrganizerEvents = () => {
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  className={`p-3 rounded-xl mr-3 ${
-                    selectedStatus === 'draft' ? 'bg-teal-400' : 'bg-white/10'
-                  }`}
+                  className={`p-3 rounded-xl mr-3 ${selectedStatus === 'draft' ? 'bg-teal-400' : 'bg-white/10'
+                    }`}
                   onPress={() => setSelectedStatus('draft')}
                 >
                   <Text className={selectedStatus === 'draft' ? 'text-gray-900 font-bold' : 'text-white'}>
@@ -539,9 +472,8 @@ const OrganizerEvents = () => {
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  className={`p-3 rounded-xl mr-3 ${
-                    selectedStatus === 'completed' ? 'bg-teal-400' : 'bg-white/10'
-                  }`}
+                  className={`p-3 rounded-xl mr-3 ${selectedStatus === 'completed' ? 'bg-teal-400' : 'bg-white/10'
+                    }`}
                   onPress={() => setSelectedStatus('completed')}
                 >
                   <Text className={selectedStatus === 'completed' ? 'text-gray-900 font-bold' : 'text-white'}>
@@ -550,7 +482,7 @@ const OrganizerEvents = () => {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-            
+
             {/* Filtre par catégorie */}
             <Text className="text-teal-400 font-medium mb-2">Catégorie</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
@@ -558,16 +490,15 @@ const OrganizerEvents = () => {
                 {categories.map(category => (
                   <TouchableOpacity
                     key={category.id}
-                    className={`p-3 rounded-xl mr-3 ${
-                      selectedCategory === category.id ? 'bg-teal-400' : 'bg-white/10'
-                    }`}
+                    className={`p-3 rounded-xl mr-3 ${selectedCategory === category.id ? 'bg-teal-400' : 'bg-white/10'
+                      }`}
                     onPress={() => setSelectedCategory(category.id)}
                   >
                     <View className="items-center">
-                      <Ionicons 
-                        name={category.icon as any} 
-                        size={24} 
-                        color={selectedCategory === category.id ? '#001215' : '#68f2f4'} 
+                      <Ionicons
+                        name={category.icon as any}
+                        size={24}
+                        color={selectedCategory === category.id ? '#001215' : '#68f2f4'}
                       />
                       <Text className={`mt-1 text-center ${selectedCategory === category.id ? 'text-gray-900 font-bold' : 'text-white'}`}>
                         {category.name}
@@ -577,10 +508,10 @@ const OrganizerEvents = () => {
                 ))}
               </View>
             </ScrollView>
-            
+
             {/* Boutons d'action */}
             <View className="flex-row justify-between">
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-white/10 py-3 px-6 rounded-full flex-1 mr-3"
                 onPress={() => {
                   setSelectedStatus('all');
@@ -589,7 +520,7 @@ const OrganizerEvents = () => {
               >
                 <Text className="text-white text-center">Réinitialiser</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-teal-400 py-3 px-6 rounded-full flex-1"
                 onPress={applyFilters}
               >
@@ -599,7 +530,7 @@ const OrganizerEvents = () => {
           </View>
         </View>
       </Modal>
-      
+
       {/* Modal de tri */}
       <Modal
         visible={isSortModalVisible}
@@ -615,7 +546,7 @@ const OrganizerEvents = () => {
                 <Ionicons name="close" size={24} color="#68f2f4" />
               </TouchableOpacity>
             </View>
-            
+
             <TouchableOpacity
               className={`p-4 rounded-xl mb-3 ${sortOption === 'date' ? 'bg-teal-400' : 'bg-white/10'}`}
               onPress={() => setSortOption('date')}
@@ -624,7 +555,7 @@ const OrganizerEvents = () => {
                 Date récente
               </Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               className={`p-4 rounded-xl mb-3 ${sortOption === 'popularity' ? 'bg-teal-400' : 'bg-white/10'}`}
               onPress={() => setSortOption('popularity')}
@@ -633,7 +564,7 @@ const OrganizerEvents = () => {
                 Popularité (ventes)
               </Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               className={`p-4 rounded-xl ${sortOption === 'revenue' ? 'bg-teal-400' : 'bg-white/10'}`}
               onPress={() => setSortOption('revenue')}
@@ -642,8 +573,8 @@ const OrganizerEvents = () => {
                 Revenus générés
               </Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               className="bg-teal-400 py-3 px-6 rounded-full mt-6"
               onPress={() => setIsSortModalVisible(false)}
             >

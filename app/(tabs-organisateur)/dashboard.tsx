@@ -1,11 +1,40 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Platform, Image } from 'react-native'
-import React, { useState, useRef } from 'react'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Platform, Image, Alert, ActivityIndicator } from 'react-native'
+import React, { useState, useRef, useEffect } from 'react'
 import BackgroundWrapper from '@/components/BackgroundWrapper'
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, MaterialIcons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { LineChart, PieChart } from 'react-native-chart-kit'
 import * as Haptics from 'expo-haptics'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { RefreshControl } from 'react-native'
+
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  time: string;
+  location: string;
+  category: string;
+  image: string;
+  status: 'upcoming' | 'ongoing' | 'completed';
+  isActive: boolean;
+  totalTickets: number;
+  availableTickets: number;
+  tickets: TicketType[];
+  totalRevenue: number;
+}
+
+interface TicketType {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  sold: number;
+}
+
+type EventStatus = 'draft' | 'published' | 'completed';
 
 const Dashboard = () => {
   const router = useRouter()
@@ -13,66 +42,108 @@ const Dashboard = () => {
   const screenWidth = Dimensions.get('window').width
   const scrollRef = useRef<ScrollView>(null)
   const [activeTimeFilter, setActiveTimeFilter] = useState<'day' | 'week' | 'month' | 'year'>('month')
+  const [events, setEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
-  // Données de démonstration améliorées
+  // Récupération des événements depuis l'API
+  const fetchEvents = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Erreur", "Token d'authentification manquant");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch('https://eventick.onrender.com/api/events/organizer/my-events', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Transformer les données de l'API pour correspondre à notre interface
+      const transformedEvents: Event[] = data.map((event: any) => {
+        // Déterminer le statut basé sur isActive et la date
+        let status: 'upcoming' | 'ongoing' | 'completed' = 'upcoming';
+        const eventDate = new Date(event.date);
+        const now = new Date();
+        
+        if (event.isActive) {
+          status = eventDate > now ? 'upcoming' : 'completed';
+        } else {
+          status = 'completed';
+        }
+
+        // Vérifier si l'événement est en cours (dans les 5 prochaines heures)
+        const timeDiff = eventDate.getTime() - now.getTime();
+        const hoursDiff = timeDiff / (1000 * 3600);
+        if (status === 'upcoming' && hoursDiff <= 5 && hoursDiff >= 0) {
+          status = 'ongoing';
+        }
+
+        // Transformer les tickets
+        const tickets: TicketType[] = event.tickets ? event.tickets.map((ticket: any) => ({
+          id: ticket._id || ticket.id,
+          name: ticket.type || ticket.name,
+          price: ticket.price || 0,
+          quantity: ticket.totalTickets || ticket.quantity,
+          sold: (ticket.totalTickets - ticket.availableTickets) || ticket.sold,
+        })) : [];
+
+        return {
+          id: event._id,
+          title: event.title,
+          description: event.description,
+          date: new Date(event.date).toLocaleDateString('fr-FR', { 
+            day: 'numeric', 
+            month: 'short', 
+            year: 'numeric' 
+          }),
+          time: new Date(event.time).toLocaleTimeString('fr-FR', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+          location: event.location,
+          category: event.category,
+          image: event.image,
+          status: status,
+          isActive: event.isActive,
+          totalTickets: event.totalTickets,
+          availableTickets: event.availableTickets,
+          tickets: tickets,
+          totalRevenue: tickets.reduce((total, ticket) => total + (ticket.price * ticket.sold), 0),
+        };
+      });
+
+      setEvents(transformedEvents);
+    } catch (error) {
+      console.error('Erreur lors de la récupération des événements:', error);
+      Alert.alert("Erreur", "Impossible de charger les événements");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Charger les événements au montage du composant
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  // Données de démonstration améliorées (pour les parties non couvertes par l'API)
   const statsData = {
     totalSales: 1245,
     ticketsLeft: 320,
     revenue: 1245000,
-    events: [
-      {
-        id: '1',
-        title: 'Festival du Désert',
-        date: '15 Oct 2023',
-        time: '18:00 - 00:00',
-        location: 'Nouakchott',
-        status: 'upcoming',
-        ticketsSold: 245,
-        totalTickets: 500,
-        revenue: 367500,
-        category: 'Festival',
-        image: 'https://cdn.pixabay.com/photo/2020/01/15/17/38/fireworks-4768501_1280.jpg'
-      },
-      {
-        id: '2',
-        title: 'Conférence Tech',
-        date: '20 Oct 2023',
-        time: '09:00 - 17:00',
-        location: 'Nouadhibou',
-        status: 'ongoing',
-        ticketsSold: 180,
-        totalTickets: 300,
-        revenue: 540000,
-        category: 'Conférence',
-        image: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=800&q=80'
-      },
-      {
-        id: '3',
-        title: 'Concert National',
-        date: '25 Sept 2023',
-        time: '20:00 - 23:30',
-        location: 'Atar',
-        status: 'completed',
-        ticketsSold: 420,
-        totalTickets: 500,
-        revenue: 2100000,
-        category: 'Concert',
-        image: 'https://images.unsplash.com/photo-1533750349088-cd871a92f312?auto=format&fit=crop&w=800&q=80'
-      },
-      {
-        id: '4',
-        title: 'Tournoi de Football',
-        date: '30 Oct 2023',
-        time: '14:00 - 18:00',
-        location: 'Kaédi',
-        status: 'upcoming',
-        ticketsSold: 120,
-        totalTickets: 400,
-        revenue: 180000,
-        category: 'Sport',
-        image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'
-      }
-    ],
     notifications: [
       { id: '1', type: 'warning', title: 'Stock faible', message: 'Tournoi de Football: bientôt en rupture de billets', time: 'Il y a 2 heures' },
       { id: '2', type: 'info', title: 'Vente rapide', message: 'Festival du Désert: 245 billets vendus aujourd\'hui', time: 'Il y a 5 heures' },
@@ -131,7 +202,7 @@ const Dashboard = () => {
     }
   }
 
-  const filteredEvents = statsData.events.filter(event => event.status === activeTab)
+  const filteredEvents = events.filter(event => event.status === activeTab)
 
   const handleTabPress = (tab: 'upcoming' | 'ongoing' | 'completed') => {
     setActiveTab(tab)
@@ -162,12 +233,37 @@ const Dashboard = () => {
 
   const timeStats = getTimeFilterStats()
 
+  // Fonction pour rafraîchir les données
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchEvents();
+  };
+
+  if (loading) {
+    return (
+      <BackgroundWrapper>
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#68f2f4" />
+          <Text className="text-white mt-4">Chargement des événements...</Text>
+        </View>
+      </BackgroundWrapper>
+    );
+  }
+
   return (
     <BackgroundWrapper>
       <ScrollView
         ref={scrollRef}
         className="flex-1 px-4 pt-16 pb-32"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#68f2f4"
+            colors={['#68f2f4']}
+          />
+        }
       >
         {/* En-tête avec animation */}
         <Animated.View
@@ -180,7 +276,6 @@ const Dashboard = () => {
           </View>
           <TouchableOpacity
             className="bg-teal-400/10 p-2 rounded-full"
-
           >
             <Ionicons name="notifications" size={24} color="#68f2f4" />
           </TouchableOpacity>
@@ -257,9 +352,7 @@ const Dashboard = () => {
           </View>
         </Animated.View>
 
-
-
-        {/* Graphique des ventes - CORRECTION DES AXES */}
+        {/* Graphique des ventes */}
         <Animated.View
           entering={FadeInDown.duration(500).delay(200)}
           className="mb-8"
@@ -340,8 +433,6 @@ const Dashboard = () => {
           </View>
         </Animated.View>
 
-
-
         {/* Onglets des événements avec sticky header */}
         <Animated.View
           entering={FadeInDown.duration(500).delay(350)}
@@ -349,10 +440,9 @@ const Dashboard = () => {
         >
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-white text-xl font-bold">Vos événements</Text>
-            <TouchableOpacity>
-              <Text className="text-teal-400 text-sm">Voir détails</Text>
+            <TouchableOpacity onPress={onRefresh}>
+              <Ionicons name="refresh" size={20} color="#68f2f4" />
             </TouchableOpacity>
-
           </View>
 
           <View className="flex-row justify-between bg-teal-400/10 rounded-xl p-1 mb-4">
@@ -398,7 +488,7 @@ const Dashboard = () => {
                 >
                   <View className="flex-row">
                     <Image
-                      source={{ uri: event.image }}
+                      source={{ uri: event.image || 'https://res.cloudinary.com/daxa8aqwd/image/upload/v1755673452/qiwssa9y370si1agfrzp.jpg' }}
                       className="w-16 h-16 rounded-lg mr-4"
                     />
                     <View className="flex-1">
@@ -411,7 +501,7 @@ const Dashboard = () => {
                         </View>
 
                         <View className="items-end">
-                          <Text className="text-white font-bold">{event.ticketsSold}/{event.totalTickets}</Text>
+                          <Text className="text-white font-bold">{event.tickets.reduce((acc, ticket) => acc + ticket.sold, 0)}/{event.totalTickets}</Text>
                           <Text className="text-teal-400 text-xs mt-1">billets vendus</Text>
                         </View>
                       </View>
@@ -420,22 +510,22 @@ const Dashboard = () => {
                       <View className="mt-3">
                         <View className="flex-row justify-between mb-1">
                           <Text className="text-teal-400 text-xs">
-                            {Math.round((event.ticketsSold / event.totalTickets) * 100)}% vendus
+                            {Math.round((event.tickets.reduce((acc, ticket) => acc + ticket.sold, 0) / event.totalTickets) * 100)}% vendus
                           </Text>
                           <Text className="text-gray-400 text-xs">
-                            {event.ticketsSold}/{event.totalTickets} billets
+                            {event.tickets.reduce((acc, ticket) => acc + ticket.sold, 0)}/{event.totalTickets} billets
                           </Text>
                         </View>
                         <View className="w-full bg-gray-700 rounded-full h-2.5">
                           <View
                             className="bg-teal-400 h-2.5 rounded-full"
-                            style={{ width: `${(event.ticketsSold / event.totalTickets) * 100}%` }}
+                            style={{ width: `${(event.tickets.reduce((acc, ticket) => acc + ticket.sold, 0) / event.totalTickets) * 100}%` }}
                           />
                         </View>
                       </View>
 
                       <View className="flex-row justify-between items-center mt-3">
-                        <Text className="text-white font-bold text-sm">{event.revenue.toLocaleString()} MRO</Text>
+                        <Text className="text-white font-bold text-sm">{event.totalRevenue.toLocaleString()} MRO</Text>
                         <Text className="text-teal-400 text-xs">Revenus générés</Text>
                       </View>
                     </View>
@@ -480,13 +570,11 @@ const Dashboard = () => {
                 label: 'Scanner QR',
                 action: () => router.push('/organizer/scanner')
               },
-             
               {
                 icon: 'cash',
                 label: 'Paiements',
                 action: () => router.push('/organizer/payments')
               },
-              
             ].map((item, index) => (
               <TouchableOpacity
                 key={index}

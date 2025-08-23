@@ -5,6 +5,7 @@ import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
 import { Link, router } from 'expo-router';
 import axios from "axios";
+import OtpModal from '@/components/OtpModal';
 
 const API_URL = "https://eventick.onrender.com";
 
@@ -12,9 +13,9 @@ const RegisterScreen = () => {
   const [userType, setUserType] = useState<'client' | 'organizer' | null>(null);
   const [organizerStep, setOrganizerStep] = useState(1);
   const [showOtpModal, setShowOtpModal] = useState(false);
-  const [otp, setOtp] = useState('');
+  //const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -71,13 +72,13 @@ const RegisterScreen = () => {
       const res = await axios.post(`${API_URL}/api/auth/register`, payload);
       setUserId(res.data.userId);
       setShowOtpModal(true);
-      
+
       if (res.data.isReturningUser) {
         Alert.alert("Info", "Compte existant. Nouveau code envoyé !");
       } else {
         Alert.alert("Succès", res.data.message);
       }
-      
+
       return res.data;
 
     } catch (err: any) {
@@ -115,7 +116,7 @@ const RegisterScreen = () => {
   const handleOrganizerRegistration = async () => {
     try {
       setLoading(true);
-      
+
       // 1. Obtenir le token en se connectant
       const loginRes = await axios.post(`${API_URL}/api/auth/login`, {
         email: formData.email,
@@ -183,19 +184,19 @@ const RegisterScreen = () => {
     }
   };
 
-  const verifyOtp = async () => {
+  const verifyOtp = async (otpCode: string) => {  // Ajoutez le paramètre otpCode
     if (!userId) return;
 
     try {
       setLoading(true);
       const res = await axios.post(`${API_URL}/api/auth/verify-otp`, {
         userId,
-        otp,
+        otp: otpCode,  // Utilisez otpCode au lieu de otp
       });
 
       Alert.alert("Succès", res.data.message);
       setShowOtpModal(false);
-      setOtp("");
+      // Supprimez setOtp(""); car géré dans OtpModal
 
       // Redirection après vérification
       if (userType === "client") {
@@ -555,7 +556,7 @@ const RegisterScreen = () => {
         {formData.organizerType === 'particulier' ? (
           <View className="mb-3">
             <Text className="text-gray-500 mb-2">Pièce d'identité (CIN/Passeport)</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               className="bg-white/10 rounded-xl p-4 items-center"
               disabled={loading}
             >
@@ -567,7 +568,7 @@ const RegisterScreen = () => {
           <View>
             <View className="mb-3">
               <Text className="text-gray-500 mb-2">Registre de commerce</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-white/10 rounded-xl p-4 items-center"
                 disabled={loading}
               >
@@ -577,7 +578,7 @@ const RegisterScreen = () => {
             </View>
             <View>
               <Text className="text-gray-500 mb-2">Pièce d'identité du représentant</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-white/10 rounded-xl p-4 items-center"
                 disabled={loading}
               >
@@ -671,64 +672,14 @@ const RegisterScreen = () => {
         </KeyboardAvoidingView>
 
         {/* OTP Verification Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={showOtpModal}
-          onRequestClose={() => setShowOtpModal(false)}
-        >
-          <View className="flex-1 bg-black/70 justify-center items-center p-4">
-            <View className="bg-gray-800 rounded-2xl p-6 w-full max-w-md">
-              <View className="items-center mb-6">
-                <Ionicons name="lock-closed" size={48} color="#ec673b" />
-                <Text className="text-white text-xl font-bold mt-4">Vérification par Email</Text>
-              </View>
-
-              <Text className="text-gray-400 text-center mb-6">
-                Nous avons envoyé un code à 6 chiffres au {formData.email}. Entrez-le ci-dessous.
-              </Text>
-
-              <View className="flex-row justify-between mb-6">
-                {[0, 1, 2, 3, 4, 5].map((index) => (
-                  <TextInput
-                    key={index}
-                    className="bg-white/10 text-white text-xl font-bold text-center rounded-xl w-12 h-12"
-                    maxLength={1}
-                    keyboardType="number-pad"
-                    onChangeText={(text) => {
-                      if (text) {
-                        const newOtp = otp + text;
-                        setOtp(newOtp);
-                        if (newOtp.length === 6) verifyOtp();
-                      }
-                    }}
-                    editable={!loading}
-                  />
-                ))}
-              </View>
-
-              <TouchableOpacity
-                className={`py-3 rounded-xl items-center mb-4 ${loading ? 'bg-gray-500' : 'bg-[#ec673b]'}`}
-                onPress={verifyOtp}
-                disabled={loading}
-              >
-                <Text className="text-white font-bold">
-                  {loading ? "Vérification..." : "Vérifier"}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                className="items-center"
-                onPress={resendOtp}
-                disabled={loading}
-              >
-                <Text className={`${loading ? 'text-gray-500' : 'text-[#ec673b]'}`}>
-                  Renvoyer le code
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+        <OtpModal
+          showOtpModal={showOtpModal}
+          setShowOtpModal={setShowOtpModal}
+          formData={formData}
+          verifyOtp={verifyOtp}
+          loading={loading}
+          resendOtp={resendOtp}
+        />
       </SafeAreaView>
     </BackgroundWrapper>
   );
