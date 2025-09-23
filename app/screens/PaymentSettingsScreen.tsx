@@ -41,7 +41,6 @@ const PaymentSettingsScreen = () => {
             Paramètres de paiement
           </Text>
 
-          {/* Bankily */}
           <View className="flex-row items-center bg-white/10 rounded-xl px-5 py-4 mb-4 border border-white/10">
             <MaterialCommunityIcons name="bank" size={22} color="#ccc" />
             <TextInput
@@ -54,7 +53,6 @@ const PaymentSettingsScreen = () => {
             />
           </View>
 
-          {/* Masrvi */}
           <View className="flex-row items-center bg-white/10 rounded-xl px-5 py-4 mb-4 border border-white/10">
             <FontAwesome5 name="money-bill-wave" size={20} color="#ccc" />
             <TextInput
@@ -67,7 +65,6 @@ const PaymentSettingsScreen = () => {
             />
           </View>
 
-          {/* Numéro Carte bancaire */}
           <View className="flex-row items-center bg-white/10 rounded-xl px-5 py-4 mb-4 border border-white/10">
             <Ionicons name="card" size={22} color="#ccc" />
             <TextInput
@@ -81,7 +78,6 @@ const PaymentSettingsScreen = () => {
             />
           </View>
 
-          {/* Nom du titulaire */}
           <View className="flex-row items-center bg-white/10 rounded-xl px-5 py-4 mb-8 border border-white/10">
             <Ionicons name="person" size={22} color="#ccc" />
             <TextInput
@@ -93,7 +89,6 @@ const PaymentSettingsScreen = () => {
             />
           </View>
 
-          {/* Bouton sauvegarder */}
           <TouchableOpacity
             className="py-4 rounded-xl items-center"
             style={{ backgroundColor: primaryColor }}

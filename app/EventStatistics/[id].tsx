@@ -8,7 +8,6 @@ import { Ionicons } from '@expo/vector-icons'
 const EventStatistics = () => {
     const { id } = useLocalSearchParams()
 
-    // Données simulées
     const eventData = {
         title: "Concert de la Renaissance",
         totalTickets: 500,
@@ -26,7 +25,6 @@ const EventStatistics = () => {
             { day: "04/08", tickets: 90 },
             { day: "05/08", tickets: 120 }
         ],
-        // Nouvelles données de paiement
         paymentMethods: [
             {
                 name: "Bankily",
@@ -52,11 +50,9 @@ const EventStatistics = () => {
         ]
     }
 
-    // Calculs statistiques
     const occupancyRate = Math.round((eventData.ticketsSold / eventData.totalTickets) * 100)
     const revenuePerTicket = Math.round(eventData.revenue / eventData.ticketsSold)
 
-    // Préparation données pour graphiques
     const pieData = eventData.ticketTypes.map(type => ({
         name: type.name,
         population: type.sold,
@@ -65,7 +61,6 @@ const EventStatistics = () => {
         legendFontSize: 14
     }))
 
-    // Données pour la répartition des paiements
     const paymentData = eventData.paymentMethods.map(method => ({
         name: method.name,
         population: method.transactions,
@@ -116,7 +111,6 @@ const EventStatistics = () => {
                     </Text>
                 </View>
 
-                {/* Indicateurs principaux */}
                 <View className="flex-row flex-wrap justify-between mb-6">
                     <StatCard
                         icon="ticket"
@@ -140,7 +134,6 @@ const EventStatistics = () => {
                     />
                 </View>
 
-                {/* Graphique de répartition */}
                 <View className="bg-white/10 rounded-2xl p-4 mb-6">
                     <Text className="text-white text-lg font-bold mb-4">
                         Répartition des tickets
@@ -157,15 +150,12 @@ const EventStatistics = () => {
                     />
                 </View>
 
-                {/* Évolution des ventes */}
 
-                {/* NOUVEAU : Répartition des paiements */}
                 <View className="bg-white/10 rounded-2xl p-4 mb-6">
                     <Text className="text-white text-lg font-bold mb-4">
                         Répartition des paiements
                     </Text>
 
-                    {/* Graphique camembert */}
                     <PieChart
                         data={paymentData}
                         width={Dimensions.get('window').width - 48}
@@ -177,7 +167,6 @@ const EventStatistics = () => {
                         absolute
                     />
 
-                    {/* Détails des méthodes de paiement */}
                     <View className="mt-4">
                         {eventData.paymentMethods.map((method, index) => (
                             <View
@@ -204,7 +193,6 @@ const EventStatistics = () => {
                             </View>
                         ))}
 
-                        {/* Total */}
                         <View className="flex-row justify-between items-center pt-3">
                             <Text className="text-white font-bold">Total</Text>
                             <View className="items-end">
@@ -219,7 +207,6 @@ const EventStatistics = () => {
                     </View>
                 </View>
 
-                {/* Détails par catégorie */}
                 <View className="bg-white/10 rounded-2xl p-4">
                     <Text className="text-white text-lg font-bold mb-4">
                         Performance par catégorie
@@ -247,7 +234,6 @@ const EventStatistics = () => {
     )
 }
 
-// Composant de carte statistique
 const StatCard = ({ icon, title, value }: { icon: string, title: string, value: string }) => (
     <View className="bg-white/10 rounded-2xl p-4 mb-4 w-[48%]">
         <View className="flex-row items-center mb-2">

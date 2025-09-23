@@ -1,129 +1,103 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, Linking, Share, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, Image, TouchableOpacity, Linking, Share, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import axios from 'axios';
 
-// 🟩 TYPES
-type Event = {
-  id: string;
+const API_URL = "https://eventick.onrender.com";
+
+interface Organizer {
+  _id: string;
+  companyName: string;
+  phone: string;
+  type: string;
+  contactEmail: string;
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    phone: string;
+  };
+}
+
+interface Ticket {
+  _id: string;
+  type: string;
+  price: number;
+  totalTickets: number;
+  availableTickets: number;
+  description: string;
+  available: boolean;
+}
+
+interface Event {
+  _id: string;
   title: string;
+  description: string;
+  location: string;
   date: string;
   time: string;
-  location: string; // ville
-  venue: string; // nom salle ou lieu précis
-  address: string;
-  price: string;
+  totalTickets: number;
+  availableTickets: number;
+  image: string | null;
   category: string;
-  promo?: boolean;
-  image: string;
-  description: string;
-  organizer: string;
-  contact: string;
-  website: string;
-  mapCoords: {
-    latitude: number;
-    longitude: number;
-  };
-};
-
-type Organizer = {
-  name: string;
-  rating: number;
-  eventsCount: number;
-};
+  city: string;
+  organizer: Organizer;
+  isActive: boolean;
+  paymentMethods: string[];
+  ticket: Ticket[];
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
 
 type TicketType = {
   id: string;
   name: string;
   price: number;
-  features: string[];
+  description: string;
+  available: boolean;
+  totalTickets: number;
+  availableTickets: number;
 };
 
-// 🟩 DONNÉES TEMPORAIRES
-const eventDetails: Event = {
-  id: '1',
-  title: 'Festival des Dattes',
-  date: '15 Septembre 2023',
-  time: '18:00 - 23:00',
-  location: 'Nouakchott',
-  venue: 'Stade Olympique',
-  address: 'Stade Olympique, Avenue du Stade',
-  price: '1500 MRO',
-  category: 'culture',
-  promo: true,
-  image: 'https://cdn.pixabay.com/photo/2020/01/15/17/38/fireworks-4768501_1280.jpg',
-  description: `Le Festival des Dattes est une célébration annuelle de la culture mauritanienne et de ses traditions ancestrales. Cet événement met à l'honneur les producteurs locaux et présente :
-  
-  • Démonstrations de récolte traditionnelle
-  • Concours du meilleur produit
-  • Ateliers culinaires avec chefs renommés
-  • Spectacles de musique folklorique
-  • Exposition d'artisanat local
-  
-  Venez découvrir l'importance de la datte dans notre patrimoine culturel et gastronomique.`,
-  organizer: 'Association Culturelle Mauritanienne',
-  contact: '+222 36 12 34 56',
-  website: 'www.festivaldattes.mr',
-  mapCoords: {
-    latitude: 18.0841,
-    longitude: -15.9785,
-  },
-};
-
-const organizerInfo: Organizer = {
-  name: 'Association Culturelle Mauritanienne',
-  rating: 4.7,
-  eventsCount: 42,
-};
-
-const ticketTypes: TicketType[] = [
-  {
-    id: 'standard',
-    name: 'Pass Standard',
-    price: 1500,
-    features: [
-      'Accès à toutes les zones publiques',
-      'Dégustation gratuite',
-      'Guide du festival',
-    ],
-  },
-  {
-    id: 'vip',
-    name: 'Pass VIP',
-    price: 5000,
-    features: [
-      'Accès zone VIP',
-      'Rencontre avec les artistes',
-      'Cadeau de bienvenue',
-      'Parking privé',
-    ],
-  },
-  {
-    id: 'family',
-    name: 'Pack Famille',
-    price: 4000,
-    features: [
-      '4 pass standard',
-      'Espace enfants',
-      'Ateliers gratuits',
-    ],
-  },
-];
-
-const EventDetailScreen = ({ route, navigation }) => {
-  const [selectedTicket, setSelectedTicket] = useState<string>('standard');
+const EventDetailScreen = () => {
+  const [event, setEvent] = useState<Event | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedTicket, setSelectedTicket] = useState<string>('');
   const [ticketCount, setTicketCount] = useState(1);
   const router = useRouter();
+  const { id } = useLocalSearchParams();
+
+  const fetchEventDetails = async () => {
+    try {
+      setIsLoading(true);
+      const response = await axios.get(`${API_URL}/api/events/${id}`);
+      setEvent(response.data);
+      
+      if (response.data.ticket && response.data.ticket.length > 0) {
+        const availableTicket = response.data.ticket.find((t: Ticket) => t.available);
+        if (availableTicket) {
+          setSelectedTicket(availableTicket._id);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching event details:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleShare = async () => {
+    if (!event) return;
+    
     try {
       await Share.share({
-        message: `Rejoignez-moi au ${eventDetails.title} le ${eventDetails.date} ! ${eventDetails.website}`,
-        url: eventDetails.image,
-        title: eventDetails.title,
+        message: `Rejoignez-moi au ${event.title} le ${formatDate(event.date)} !`,
+        title: event.title,
       });
     } catch (error) {
       console.error('Erreur de partage :', error);
@@ -131,25 +105,101 @@ const EventDetailScreen = ({ route, navigation }) => {
   };
 
   const handleReservation = () => {
-    router.push(
-      `/reservation/${eventDetails.id}?ticketTypeId=${selectedTicket}&quantity=${ticketCount}`
-    );
+    if (!event || !selectedTicket) return;
+    
+    const selectedTicketData = event.ticket.find(t => t._id === selectedTicket);
+    if (!selectedTicketData) return;
+    
+    router.push({
+      pathname: `/reservation/${event._id}`,
+      params: {
+        ticketTypeId: selectedTicket,
+        quantity: ticketCount,
+        price: selectedTicketData.price,
+        eventTitle: event.title,
+        eventDate: event.date
+      }
+    });
   };
 
   const incrementTickets = () => setTicketCount(prev => prev + 1);
   const decrementTickets = () => setTicketCount(prev => Math.max(1, prev - 1));
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const formatTime = (timeString: string) => {
+    if (!timeString) return '';
+    
+    if (timeString.includes('T')) {
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+    
+    return timeString;
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchEventDetails();
+    }
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <BackgroundWrapper>
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#ec673b" />
+          <Text className="text-white mt-4">Chargement de l'événement...</Text>
+        </View>
+      </BackgroundWrapper>
+    );
+  }
+
+  if (!event) {
+    return (
+      <BackgroundWrapper>
+        <View className="flex-1 justify-center items-center">
+          <Ionicons name="alert-circle-outline" size={50} color="#ec673b" />
+          <Text className="text-white mt-4 text-center">
+            Événement non trouvé
+          </Text>
+          <TouchableOpacity
+            className="bg-[#ec673b] rounded-lg py-3 px-6 mt-6"
+            onPress={() => router.back()}
+          >
+            <Text className="text-white font-bold">Retour</Text>
+          </TouchableOpacity>
+        </View>
+      </BackgroundWrapper>
+    );
+  }
+
   return (
     <BackgroundWrapper>
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <StatusBar style="light" />
-        {/* Header */}
         <View className="h-80 relative">
-          <Image
-            source={{ uri: eventDetails.image }}
-            className="w-full h-full"
-            resizeMode="cover"
-          />
+          {event.image ? (
+            <Image
+              source={{ uri: event.image }}
+              className="w-full h-full"
+              resizeMode="cover"
+            />
+          ) : (
+            <View className="w-full h-full bg-teal-400/20 items-center justify-center">
+              <Ionicons name="image-outline" size={50} color="#68f2f4" />
+            </View>
+          )}
           <LinearGradient
             colors={['rgba(0,0,0,0.9)', 'transparent']}
             className="absolute top-0 left-0 right-0"
@@ -169,68 +219,64 @@ const EventDetailScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Profil organisateur */}
         <TouchableOpacity
-          onPress={() => router.push(`/organizer/${organizerInfo.name}`)}
           className="flex-row items-center bg-white/5 rounded-xl p-5 m-4 shadow-md"
         >
-          <Image
-            source={{
-              uri: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-            }}
-            className="w-16 h-16 rounded-full"
-          />
+          <View className="w-16 h-16 rounded-full bg-teal-400/20 items-center justify-center">
+            <Ionicons name="business" size={30} color="#68f2f4" />
+          </View>
           <View className="ml-4 flex-1">
             <View className="flex-row items-center">
               <Text className="text-white font-bold text-lg">
-                {organizerInfo.name}
-                <Ionicons name="checkmark-circle" size={20} color="#4ADE80" />
+                {event.organizer.companyName}
               </Text>
             </View>
 
             <View className="flex-row items-center mt-2">
-              <Ionicons name="star" size={14} color="#FFD700" />
+              <Ionicons name="mail" size={14} color="#ec673b" />
               <Text className="text-white ml-2 text-sm">
-                {organizerInfo.rating} ({organizerInfo.eventsCount} événements)
+                {event.organizer.contactEmail}
+              </Text>
+            </View>
+            <View className="flex-row items-center mt-1">
+              <Ionicons name="call" size={14} color="#ec673b" />
+              <Text className="text-white ml-2 text-sm">
+                {event.organizer.phone}
               </Text>
             </View>
           </View>
-          <Ionicons name="chevron-forward" size={24} color="#ccc" />
         </TouchableOpacity>
 
-        {/* Détails événement */}
         <View className="px-4 pt-2">
           <View className="flex-row justify-between items-center">
             <View className="flex-row items-center flex-1">
               <Text className="text-white text-3xl font-extrabold mr-3 flex-shrink">
-                {eventDetails.title}
+                {event.title}
               </Text>
-              {eventDetails.promo && (
-                <View className="bg-yellow-400 px-2 py-1 rounded-full shadow">
-                  <Text className="text-black font-bold text-sm">Promo</Text>
-                </View>
-              )}
             </View>
             <View className="bg-red-600 py-1 px-4 rounded-full shadow">
-              <Text className="text-white font-extrabold text-lg">{eventDetails.price}</Text>
+              <Text className="text-white font-extrabold text-lg">
+                {event.ticket && event.ticket.length > 0 
+                  ? `${Math.min(...event.ticket.map(t => t.price))} MRO` 
+                  : 'Gratuit'}
+              </Text>
             </View>
           </View>
 
-          {/* Infos */}
           <View className="flex-row flex-wrap my-5 px-4">
             {[
-              { icon: 'calendar-outline', label: eventDetails.date },
-              { icon: 'time-outline', label: eventDetails.time },
+              { icon: 'calendar-outline', label: formatDate(event.date) },
+              { icon: 'time-outline', label: formatTime(event.time) },
               {
                 icon: 'location-outline',
                 label: (
                   <View>
-                    <Text className="text-white font-semibold">{eventDetails.venue}</Text>
-                    <Text className="text-white/80 text-sm">{eventDetails.location}</Text>
+                    <Text className="text-white font-semibold">{event.location}</Text>
+                    <Text className="text-white/80 text-sm">{event.city}</Text>
                   </View>
                 ),
               },
-              { icon: 'pricetag-outline', label: eventDetails.category },
+              { icon: 'pricetag-outline', label: event.category },
             ].map((info, i) => (
               <View
                 key={i}
@@ -246,105 +292,110 @@ const EventDetailScreen = ({ route, navigation }) => {
             ))}
           </View>
 
-          {/* Description */}
           <Text className="text-white text-base mb-8 px-4 leading-7">
-            {eventDetails.description}
+            {event.description}
           </Text>
 
-          {/* Actions */}
           <View className="flex-row mb-8 px-4 space-x-4" style={{ gap: 8 }}>
             <TouchableOpacity
               className="flex-1 bg-[#ec673b] rounded-xl py-4 items-center shadow-lg"
-              onPress={() => Linking.openURL(`tel:${eventDetails.contact}`)}
+              onPress={() => Linking.openURL(`tel:${event.organizer.phone}`)}
               activeOpacity={0.7}
             >
               <Text className="text-white font-bold text-lg">Appeler</Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="flex-1 bg-[#ec673b] rounded-xl py-4 items-center shadow-lg"
-              onPress={() => Linking.openURL(`https://${eventDetails.website}`)}
+              onPress={() => Linking.openURL(`mailto:${event.organizer.contactEmail}`)}
               activeOpacity={0.7}
             >
-              <Text className="text-white font-bold text-lg">Site Web</Text>
+              <Text className="text-white font-bold text-lg">Email</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Billets */}
           <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold', marginBottom: 12, paddingHorizontal: 16 }}>
             Billets
           </Text>
 
           <View style={{ paddingHorizontal: 16, marginBottom: 32 }}>
-            {ticketTypes.map(ticket => {
-              const isSelected = selectedTicket === ticket.id;
+            {event.ticket && event.ticket.map(ticket => {
+              const isSelected = selectedTicket === ticket._id;
               return (
                 <TouchableOpacity
-                  key={ticket.id}
+                  key={ticket._id}
                   style={[
                     styles.ticketContainer,
                     isSelected ? styles.ticketSelected : styles.ticketUnselected,
+                    !ticket.available && styles.ticketUnavailable
                   ]}
-                  onPress={() => setSelectedTicket(ticket.id)}
-                  activeOpacity={0.8}
+                  onPress={() => ticket.available && setSelectedTicket(ticket._id)}
+                  activeOpacity={ticket.available ? 0.8 : 1}
+                  disabled={!ticket.available}
                 >
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={isSelected ? styles.ticketNameSelected : styles.ticketNameUnselected}>
-                      {ticket.name}
+                    <Text style={isSelected ? styles.ticketNameSelected : 
+                      ticket.available ? styles.ticketNameUnselected : styles.ticketNameUnavailable}>
+                      {ticket.type}
                     </Text>
-                    <Text style={isSelected ? styles.ticketPriceSelected : styles.ticketPriceUnselected}>
-                      {ticket.price} MRO
+                    <Text style={isSelected ? styles.ticketPriceSelected : 
+                      ticket.available ? styles.ticketPriceUnselected : styles.ticketPriceUnavailable}>
+                      {ticket.price > 0 ? `${ticket.price} MRO` : 'Gratuit'}
                     </Text>
                   </View>
 
-                  <View style={{ marginTop: 12 }}>
-                    {ticket.features.map((feature, index) => (
-                      <View key={index} style={styles.featureContainer}>
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={20}
-                          color={isSelected ? '#fff' : '#ec673b'}
-                        />
-                        <Text style={isSelected ? styles.featureTextSelected : styles.featureTextUnselected}>
-                          {feature}
-                        </Text>
-                      </View>
-                    ))}
+                  <Text style={isSelected ? styles.ticketDescSelected : 
+                    ticket.available ? styles.ticketDescUnselected : styles.ticketDescUnavailable}>
+                    {ticket.description}
+                  </Text>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                    <Text style={isSelected ? styles.ticketAvailabilitySelected : 
+                      ticket.available ? styles.ticketAvailabilityUnselected : styles.ticketAvailabilityUnavailable}>
+                      {ticket.availableTickets} / {ticket.totalTickets} disponibles
+                    </Text>
+                    {!ticket.available && (
+                      <Text style={styles.soldOutText}>ÉPUISÉ</Text>
+                    )}
                   </View>
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          {/* Quantité */}
-          <Text className="text-white text-xl font-bold mb-3 px-4">Quantité</Text>
-          <View className="flex-row items-center justify-center bg-white/10 rounded-xl p-5 mb-40 mx-4 shadow-inner">
-            <TouchableOpacity onPress={decrementTickets} className="mx-6">
-              <Ionicons name="remove-circle" size={36} color="#fff" />
-            </TouchableOpacity>
-            <Text className="text-white text-3xl font-bold mx-8">{ticketCount}</Text>
-            <TouchableOpacity onPress={incrementTickets} className="mx-6">
-              <Ionicons name="add-circle" size={36} color="#fff" />
-            </TouchableOpacity>
-          </View>
+          {selectedTicket && (
+            <>
+              <Text className="text-white text-xl font-bold mb-3 px-4">Quantité</Text>
+              <View className="flex-row items-center justify-center bg-white/10 rounded-xl p-5 mb-40 mx-4 shadow-inner">
+                <TouchableOpacity onPress={decrementTickets} className="mx-6">
+                  <Ionicons name="remove-circle" size={36} color="#fff" />
+                </TouchableOpacity>
+                <Text className="text-white text-3xl font-bold mx-8">{ticketCount}</Text>
+                <TouchableOpacity onPress={incrementTickets} className="mx-6">
+                  <Ionicons name="add-circle" size={36} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
       </ScrollView>
 
-      {/* Bouton réservation */}
-      <View className="absolute bottom-12 left-0 right-0 px-6">
-        <TouchableOpacity
-          className="bg-[#ec673b] py-5 rounded-xl items-center shadow-xl"
-          onPress={handleReservation}
-          activeOpacity={0.8}
-        >
-          <Text className="text-white font-bold text-xl">
-            Réserver maintenant -{' '}
-            {(
-              ticketTypes.find(t => t.id === selectedTicket)?.price * ticketCount || 0
-            ).toLocaleString()}{' '}
-            MRO
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {selectedTicket && (
+        <View className="absolute bottom-12 left-0 right-0 px-6">
+          <TouchableOpacity
+            className="bg-[#ec673b] py-5 rounded-xl items-center shadow-xl"
+            onPress={handleReservation}
+            activeOpacity={0.8}
+          >
+            <Text className="text-white font-bold text-xl">
+              Réserver maintenant -{' '}
+              {(
+                (event.ticket.find(t => t._id === selectedTicket)?.price || 0) * ticketCount
+              ).toLocaleString()}{' '}
+              MRO
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </BackgroundWrapper>
   );
 };
@@ -356,27 +407,36 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   ticketSelected: {
-    backgroundColor: '#ec673b', // teal-400
+    backgroundColor: '#ec673b',
     borderWidth: 2,
-    borderColor: '#ffff', // teal-600
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    borderColor: '#ffff',
   },
   ticketUnselected: {
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
   },
+  ticketUnavailable: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,0,0,0.2)',
+    opacity: 0.7,
+  },
   ticketNameSelected: {
     fontWeight: '800',
     fontSize: 18,
-    color: '#ffff', // gray-900
+    color: '#ffff',
   },
   ticketNameUnselected: {
     fontWeight: '800',
     fontSize: 18,
     color: '#fff',
+  },
+  ticketNameUnavailable: {
+    fontWeight: '800',
+    fontSize: 18,
+    color: '#888',
+    textDecorationLine: 'line-through',
   },
   ticketPriceSelected: {
     fontWeight: '800',
@@ -386,22 +446,45 @@ const styles = StyleSheet.create({
   ticketPriceUnselected: {
     fontWeight: '800',
     fontSize: 18,
-    color: '#fff', // teal-400
-  },
-  featureContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  featureTextSelected: {
-    marginLeft: 12,
     color: '#fff',
   },
-  featureTextUnselected: {
-    marginLeft: 12,
+  ticketPriceUnavailable: {
+    fontWeight: '800',
+    fontSize: 18,
+    color: '#888',
+    textDecorationLine: 'line-through',
+  },
+  ticketDescSelected: {
+    marginTop: 8,
+    color: '#fff',
+  },
+  ticketDescUnselected: {
+    marginTop: 8,
     color: '#d1d5db',
   },
+  ticketDescUnavailable: {
+    marginTop: 8,
+    color: '#888',
+    textDecorationLine: 'line-through',
+  },
+  ticketAvailabilitySelected: {
+    color: '#fff',
+    fontSize: 12,
+  },
+  ticketAvailabilityUnselected: {
+    color: '#d1d5db',
+    fontSize: 12,
+  },
+  ticketAvailabilityUnavailable: {
+    color: '#888',
+    fontSize: 12,
+    textDecorationLine: 'line-through',
+  },
+  soldOutText: {
+    color: '#ff4444',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
 });
-
 
 export default EventDetailScreen;

@@ -1,19 +1,16 @@
-// components/BackgroundWrapper.tsx
 import React from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native'; // Ajout de useWindowDimensions
+import { View, StyleSheet, useWindowDimensions } from 'react-native'; 
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function BackgroundWrapper({ children }: { children: React.ReactNode }) {
-  const { width } = useWindowDimensions(); // Récupération de la largeur de l'écran
+  const { width } = useWindowDimensions(); 
 
-  // Calcul des dimensions proportionnelles
-  const circle1Size = width * 1.0; // 100% de la largeur
-  const circle2Size = width * 0.8; // 80% de la largeur
-  const circle3Size = width * 0.45; // 45% de la largeur
+  const circle1Size = width * 1.0; 
+  const circle2Size = width * 0.8; 
+  const circle3Size = width * 0.45; 
 
   return (
     <View style={styles.container} >
-      {/* Dégradé principal - version pro */}
       <LinearGradient
         colors={['#001215', '#00252a', '#00343a', '#006873']}
         locations={[0, 0.3, 0.6, 1]}
@@ -22,7 +19,6 @@ export default function BackgroundWrapper({ children }: { children: React.ReactN
         style={StyleSheet.absoluteFill}
       />
       
-      {/* Couche de texture subtile */}
       <LinearGradient
         colors={['transparent', 'rgba(0, 104, 115, 0.03)']}
         start={{ x: 0.5, y: 0 }}
@@ -30,13 +26,11 @@ export default function BackgroundWrapper({ children }: { children: React.ReactN
         style={StyleSheet.absoluteFill}
       />
       
-      {/* Éléments géométriques professionnels */}
       <View style={styles.geometricContainer}>
         <View style={[styles.geometricShape, styles.shape1]} />
         <View style={[styles.geometricShape, styles.shape2]} />
       </View>
       
-      {/* Cercles décoratifs subtils - dimensions proportionnelles */}
       <View style={[
         styles.circleBase, 
         { 
@@ -66,7 +60,6 @@ export default function BackgroundWrapper({ children }: { children: React.ReactN
         }
       ]} />
       
-      {/* Contenu */}
       <View style={styles.content}>
         {children}
       </View>
@@ -110,7 +103,6 @@ const styles = StyleSheet.create({
     borderRadius: 140,
     transform: [{ rotate: '-15deg' }, { skewY: '10deg' }],
   },
-  // Style de base commun pour tous les cercles
   circleBase: {
     position: 'absolute',
     backgroundColor: '#006873',

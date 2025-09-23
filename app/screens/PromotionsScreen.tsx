@@ -29,7 +29,6 @@ type Promotion = {
   description: string;
 };
 
-// 🟩 DONNÉES TEMPORAIRES (identiques à ton exemple)
 const promotions: Promotion[] = [
   { 
     id: '1', 
@@ -98,13 +97,11 @@ const promotions: Promotion[] = [
   },
 ];
 
-// Parse "1500 MRO" -> 1500
 const parsePrice = (priceStr: string) => {
   const parsed = parseInt(priceStr.replace(/\D/g, ''), 10);
   return isNaN(parsed) ? 0 : parsed;
 };
 
-// Calcule le temps restant
 const calculateTimeLeft = (endDate: string) => {
   const diff = new Date(endDate).getTime() - Date.now();
 
@@ -219,7 +216,6 @@ const FeaturedPromotion = ({ promo, onPress }: { promo: Promotion; onPress: () =
           resizeMode="cover"
         />
 
-        {/* Overlay haut */}
         <View className="absolute top-0 left-0 right-0 p-4 flex-row justify-between bg-gradient-to-b from-black/70 to-transparent">
           <View className="bg-red-600 px-4 py-1 rounded-full shadow">
             <Text className="text-white font-semibold text-sm">-{promo.discountPercentage}%</Text>
@@ -231,7 +227,6 @@ const FeaturedPromotion = ({ promo, onPress }: { promo: Promotion; onPress: () =
           </View>
         </View>
 
-        {/* Overlay bas */}
         <View className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
           <Text className="text-white text-2xl font-bold">{promo.title}</Text>
           <Text className="text-teal-400 text-sm">
@@ -280,7 +275,6 @@ const PromotionsScreen = () => {
       <ScrollView className="flex-1 px-5 pt-16" showsVerticalScrollIndicator={false}>
         <StatusBar style="light" />
 
-        {/* Header */}
         <View className="flex-row justify-between items-center mb-8">
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={26} color="#38bdf8" />
@@ -291,7 +285,6 @@ const PromotionsScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Introduction */}
         <View className="bg-teal-500/20 rounded-3xl p-6 mb-8 shadow-inner">
           <Text className="text-white text-xl font-bold mb-3">
             Économisez sur les meilleurs événements
@@ -301,7 +294,6 @@ const PromotionsScreen = () => {
           </Text>
         </View>
 
-        {/* Offre vedette */}
         {featuredPromo && (
           <FeaturedPromotion
             promo={featuredPromo}
@@ -309,7 +301,6 @@ const PromotionsScreen = () => {
           />
         )}
 
-        {/* Autres offres */}
         <Text className="text-white text-2xl font-extrabold mb-5">Autres offres</Text>
 
         {otherPromos.length > 0 ? (
@@ -334,7 +325,6 @@ const PromotionsScreen = () => {
           </View>
         )}
 
-        {/* Section info */}
         <View className="bg-white/10 rounded-3xl p-6 mt-10 mb-20 shadow-lg">
           <Text className="text-white font-extrabold text-xl mb-6">
             Comment fonctionnent nos offres spéciales ?

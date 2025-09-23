@@ -15,7 +15,6 @@ import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 
-// Couleur principale
 const primaryColor = '#ec673b';
 
 const helpOptions = [
@@ -29,10 +28,10 @@ const ProfileScreen = () => {
 
 
   const [userInfo] = useState({
-    name: 'Amadou Sow',
-    email: 'contact@amadousow.dev',
+    name: 'Amadou Dem',
+    email: 'contact@amadoudem.dev',
     phone: '+222 12 34 56 78',
-    profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
+    profileImage: 'https://i.postimg.cc/fLPF4T98/Whats-App-Image-2025-06-27-12-01-22-36d8d6d7.jpg',
     organization: 'EventMR',
   });
 
@@ -64,9 +63,7 @@ const ProfileScreen = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const navigateToHelp = (id: string) => {
-    alert(`Navigation vers: ${id}`);
-  };
+
 
   const changePassword = () => {
     setShowPasswordModal(false);
@@ -97,7 +94,6 @@ const ProfileScreen = () => {
           className="flex-1 px-5 pt-6 pb-32"
           showsVerticalScrollIndicator={false}
         >
-          {/* Infos personnelles */}
           <View className="items-center mb-8">
             <Image
               source={{ uri: userInfo.profileImage }}
@@ -112,7 +108,6 @@ const ProfileScreen = () => {
           </View>
 
 
-          {/* Section Mon Profil */}
           <View className="mb-8">
             <Text className="text-white text-xl font-bold mb-4">Mon profil</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -154,7 +149,6 @@ const ProfileScreen = () => {
             </View>
           </View>
 
-          {/* Notifications */}
           <View className="mb-8">
             <Text className="text-white text-xl font-bold mb-4">Notifications</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -188,7 +182,6 @@ const ProfileScreen = () => {
             </View>
           </View>
 
-          {/* Sécurité */}
           <View className="mb-8">
             <Text className="text-white text-xl font-bold mb-4">Sécurité</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -227,7 +220,6 @@ const ProfileScreen = () => {
             </View>
           </View>
 
-          {/* Centre d'aide */}
           <View className="mb-8">
             <Text className="text-white text-xl font-bold mb-4">Centre d'aide</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -248,7 +240,6 @@ const ProfileScreen = () => {
             </View>
           </View>
 
-          {/* Actions du compte */}
           <View className="mb-20 rounded-xl overflow-hidden border border-white/10 bg-white/10">
 
             <TouchableOpacity
@@ -275,7 +266,6 @@ const ProfileScreen = () => {
           </View>
         </ScrollView>
 
-        {/* Modal Changer mot de passe */}
         <Modal
           visible={showPasswordModal}
           transparent
@@ -334,7 +324,6 @@ const ProfileScreen = () => {
           </View>
         </Modal>
 
-        {/* Modal Paramètres bancaires */}
         <Modal
           visible={showBankModal}
           transparent
@@ -407,7 +396,6 @@ const ProfileScreen = () => {
           </View>
         </Modal>
 
-        {/* Modal Supprimer compte */}
         <Modal
           visible={showDeleteModal}
           transparent

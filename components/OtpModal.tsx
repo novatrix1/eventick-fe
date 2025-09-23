@@ -29,12 +29,10 @@ const OtpModal: React.FC<OtpModalProps> = ({
     newOtp[index] = text;
     setOtp(newOtp);
 
-    // Auto-focus next input
     if (text && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
-    // Auto-submit if all fields are filled
     if (text && index === 5) {
       const finalOtp = newOtp.join('');
       verifyOtp(finalOtp);
@@ -68,7 +66,6 @@ const OtpModal: React.FC<OtpModalProps> = ({
     >
       <View className="flex-1 bg-black/70 justify-center items-center p-4">
         <View className="bg-gray-800 rounded-2xl p-6 w-full max-w-md">
-          {/* Close button */}
           <TouchableOpacity 
             onPress={clearOtp}
             className="absolute top-4 right-4 z-10"

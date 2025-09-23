@@ -43,7 +43,6 @@ const LoginScreen = () => {
     await AsyncStorage.setItem("token", token);
 
     if (user.role === "organizer") {
-      // Vérifier si l'organisateur est certifié
       try {
         const organizerRes = await axios.get(`${API_URL}/api/organizers/profile`, {
           headers: { Authorization: `Bearer ${token}` },

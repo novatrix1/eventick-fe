@@ -56,7 +56,6 @@ const requiredDocumentsInitial: LegalDocument[] = [
 export default function DocumentsLegauxScreen() {
   const [documents, setDocuments] = useState<LegalDocument[]>(requiredDocumentsInitial);
 
-  // Ouvre un fichier avec l'app native si possible
   const openFile = async (uri: string) => {
     try {
       await Linking.openURL(uri);
@@ -65,7 +64,6 @@ export default function DocumentsLegauxScreen() {
     }
   };
 
-  // Choisir un fichier pour un document donné
   const pickDocument = async (docId: string) => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -74,7 +72,6 @@ export default function DocumentsLegauxScreen() {
       });
 
       if (result.type === "success") {
-        // Met à jour le document avec le fichier sélectionné et remet status en pending (à valider)
         setDocuments((docs) =>
           docs.map((doc) =>
             doc.id === docId
@@ -89,7 +86,6 @@ export default function DocumentsLegauxScreen() {
     }
   };
 
-  // Affichage de l'état sous forme texte coloré
   const renderStatus = (status: DocumentStatus) => {
     switch (status) {
       case "pending":

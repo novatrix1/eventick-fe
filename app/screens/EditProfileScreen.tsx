@@ -43,7 +43,6 @@ const EditProfileScreen = () => {
               <Text className="text-white text-3xl font-extrabold ml-4">Edit Profile</Text>
             </View>
 
-            {/* Profile Image */}
             <View className="items-center mb-10">
               <Image
                 source={{
@@ -59,7 +58,6 @@ const EditProfileScreen = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Inputs */}
             <TextInput
               className="bg-white/10 text-white rounded-xl px-5 py-4 mb-5 text-lg"
               placeholder="Nom"
@@ -88,7 +86,6 @@ const EditProfileScreen = () => {
               selectionColor="#68f2f4"
             />
 
-            {/* Save Button */}
             <TouchableOpacity
               className="bg-[#ec673b] py-4 rounded-xl items-center shadow-lg shadow-teal-500/60"
               activeOpacity={0.85}

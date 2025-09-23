@@ -1,13 +1,14 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Platform, Image, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Platform, Image, Alert, ActivityIndicator, RefreshControl } from 'react-native'
 import React, { useState, useRef, useEffect } from 'react'
 import BackgroundWrapper from '@/components/BackgroundWrapper'
-import { Ionicons, MaterialCommunityIcons, FontAwesome5, MaterialIcons } from '@expo/vector-icons'
+import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { LineChart, PieChart } from 'react-native-chart-kit'
 import * as Haptics from 'expo-haptics'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { RefreshControl } from 'react-native'
+
+
 
 interface Event {
   id: string;
@@ -46,7 +47,6 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
-  // Récupération des événements depuis l'API
   const fetchEvents = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -70,9 +70,7 @@ const Dashboard = () => {
 
       const data = await response.json();
       
-      // Transformer les données de l'API pour correspondre à notre interface
       const transformedEvents: Event[] = data.map((event: any) => {
-        // Déterminer le statut basé sur isActive et la date
         let status: 'upcoming' | 'ongoing' | 'completed' = 'upcoming';
         const eventDate = new Date(event.date);
         const now = new Date();
@@ -83,14 +81,12 @@ const Dashboard = () => {
           status = 'completed';
         }
 
-        // Vérifier si l'événement est en cours (dans les 5 prochaines heures)
         const timeDiff = eventDate.getTime() - now.getTime();
         const hoursDiff = timeDiff / (1000 * 3600);
         if (status === 'upcoming' && hoursDiff <= 5 && hoursDiff >= 0) {
           status = 'ongoing';
         }
 
-        // Transformer les tickets
         const tickets: TicketType[] = event.tickets ? event.tickets.map((ticket: any) => ({
           id: ticket._id || ticket.id,
           name: ticket.type || ticket.name,
@@ -134,12 +130,10 @@ const Dashboard = () => {
     }
   };
 
-  // Charger les événements au montage du composant
   useEffect(() => {
     fetchEvents();
   }, []);
 
-  // Données de démonstration améliorées (pour les parties non couvertes par l'API)
   const statsData = {
     totalSales: 1245,
     ticketsLeft: 320,
@@ -163,7 +157,6 @@ const Dashboard = () => {
     ]
   }
 
-  // Données pour le graphique avec plus de points
   const chartData = {
     labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept'],
     datasets: [
@@ -175,7 +168,6 @@ const Dashboard = () => {
     ],
   }
 
-  // Configuration améliorée du graphique
   const chartConfig = {
     backgroundColor: '#001215',
     backgroundGradientFrom: '#001215',
@@ -215,7 +207,6 @@ const Dashboard = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
   }
 
-  // Calculer les statistiques pour la période sélectionnée
   const getTimeFilterStats = () => {
     switch (activeTimeFilter) {
       case 'day':
@@ -233,7 +224,6 @@ const Dashboard = () => {
 
   const timeStats = getTimeFilterStats()
 
-  // Fonction pour rafraîchir les données
   const onRefresh = () => {
     setRefreshing(true);
     fetchEvents();
@@ -265,7 +255,6 @@ const Dashboard = () => {
           />
         }
       >
-        {/* En-tête avec animation */}
         <Animated.View
           entering={FadeIn.duration(500)}
           className="flex-row justify-between items-center mb-6"
@@ -281,7 +270,6 @@ const Dashboard = () => {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Filtre temporel */}
         <Animated.View
           entering={FadeInDown.duration(500).delay(50)}
           className="mb-4"
@@ -303,7 +291,6 @@ const Dashboard = () => {
           </View>
         </Animated.View>
 
-        {/* Statistiques globales avec animations */}
         <Animated.View
           entering={FadeInDown.duration(500).delay(100)}
           className="mb-8"
@@ -352,7 +339,6 @@ const Dashboard = () => {
           </View>
         </Animated.View>
 
-        {/* Graphique des ventes */}
         <Animated.View
           entering={FadeInDown.duration(500).delay(200)}
           className="mb-8"
@@ -387,14 +373,12 @@ const Dashboard = () => {
             />
           </View>
 
-          {/* Légende du graphique */}
           <View className="flex-row items-center mt-3 ml-2">
             <View className="w-3 h-3 bg-teal-400 rounded-full mr-2" />
             <Text className="text-teal-400 text-sm">Revenus mensuels (MRO)</Text>
           </View>
         </Animated.View>
 
-        {/* Répartition des paiements */}
         <Animated.View
           entering={FadeInDown.duration(500).delay(250)}
           className="mb-8"
@@ -433,7 +417,6 @@ const Dashboard = () => {
           </View>
         </Animated.View>
 
-        {/* Onglets des événements avec sticky header */}
         <Animated.View
           entering={FadeInDown.duration(500).delay(350)}
           className="mb-6"
@@ -474,7 +457,6 @@ const Dashboard = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Liste des événements avec animations */}
           {filteredEvents.length > 0 ? (
             filteredEvents.map((event, index) => (
               <Animated.View
@@ -506,7 +488,6 @@ const Dashboard = () => {
                         </View>
                       </View>
 
-                      {/* Barre de progression améliorée */}
                       <View className="mt-3">
                         <View className="flex-row justify-between mb-1">
                           <Text className="text-teal-400 text-xs">
@@ -552,7 +533,6 @@ const Dashboard = () => {
           )}
         </Animated.View>
 
-        {/* Raccourcis rapides améliorés */}
         <Animated.View
           entering={FadeInDown.duration(500).delay(400)}
           className="mb-40"

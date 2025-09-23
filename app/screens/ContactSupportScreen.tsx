@@ -50,13 +50,11 @@ const ContactSupportScreen = () => {
       return;
     }
 
-    // Ici tu peux intégrer l’envoi réel (API, email, etc.)
     Alert.alert(
       "Message envoyé",
       "Merci de nous avoir contactés. Nous vous répondrons rapidement."
     );
 
-    // Réinitialise le formulaire
     setForm({ name: "", email: "", subject: "", message: "" });
   };
 

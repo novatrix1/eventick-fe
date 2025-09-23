@@ -65,7 +65,6 @@ const EditProfileScreen = () => {
           className="flex-1 px-5 pt-6 pb-32"
           showsVerticalScrollIndicator={false}
         >
-          {/* Photo de profil */}
           <View className="items-center mb-8">
             <TouchableOpacity onPress={pickImage}>
               <Image
@@ -82,7 +81,6 @@ const EditProfileScreen = () => {
             </Text>
           </View>
 
-          {/* Informations personnelles */}
           <Text className="text-white text-xl font-bold mb-4">
             Informations personnelles
           </Text>
@@ -106,7 +104,6 @@ const EditProfileScreen = () => {
             />
           ))}
 
-          {/* Bio */}
           <Text className="text-white text-xl font-bold mb-4">Bio</Text>
           <TextInput
             placeholder="Parlez un peu de vous..."
@@ -119,7 +116,6 @@ const EditProfileScreen = () => {
             className="bg-white/10 text-white rounded-xl px-5 py-4 mb-4 text-lg border border-white/10"
           />
 
-          {/* Réseaux sociaux */}
           <Text className="text-white text-xl font-bold mb-4">
             Réseaux sociaux
           </Text>
@@ -146,7 +142,6 @@ const EditProfileScreen = () => {
             </View>
           ))}
 
-          {/* Site web */}
           <Text className="text-white text-xl font-bold mb-4">Site web</Text>
           <TextInput
             placeholder="Votre site web"
@@ -156,7 +151,6 @@ const EditProfileScreen = () => {
             className="bg-white/10 text-white rounded-xl px-5 py-4 mb-8 text-lg border border-white/10"
           />
 
-          {/* Bouton sauvegarder */}
           <TouchableOpacity
             className="py-4 rounded-xl items-center"
             style={{ backgroundColor: primaryColor }}

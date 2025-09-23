@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, Modal, StyleSheet, Image, TextInput, ScrollView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, Modal, TextInput, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
-import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
-import * as MediaLibrary from 'expo-media-library';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
@@ -437,8 +435,8 @@ const PaymentsScreen = () => {
 
     const { uri } = await Print.printToFileAsync({
       html: htmlContent,
-      width: 595,  // A4 width in points (210mm)
-      height: 842, // A4 height in points (297mm)
+      width: 595,  
+      height: 842, 
       base64: false
     });
 
@@ -450,7 +448,6 @@ const PaymentsScreen = () => {
   }
 };
 
-  // Demander un retrait
   const requestWithdrawal = async () => {
     if (!withdrawalAmount || isNaN(Number(withdrawalAmount))) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -471,7 +468,6 @@ const PaymentsScreen = () => {
       return;
     }
     
-    // Vérification des informations bancaires pour les virements
     if (withdrawalMethod === 'bank' && (!bankInfo.bankName || !bankInfo.accountNumber)) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       alert('Veuillez compléter vos informations bancaires');
@@ -481,10 +477,8 @@ const PaymentsScreen = () => {
     try {
       setIsProcessing(true);
       
-      // Simuler un délai de traitement
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Créer les données du reçu
       const receiptData = {
         id: `rec${receipts.length + 1}`,
         date: new Date().toLocaleDateString(),
@@ -500,11 +494,9 @@ const PaymentsScreen = () => {
         rib: bankInfo.rib
       };
       
-      // Générer le reçu PDF uniquement si le retrait est réussi
       const receiptUri = await generateReceiptPDF(receiptData, 'https://www.novatrix.dev/logo.png');
       
       if (receiptUri) {
-        // Stocker l'URI du PDF dans les données du reçu
         receiptData.uri = receiptUri;
         
         setSelectedReceipt(receiptData);
@@ -524,7 +516,6 @@ const PaymentsScreen = () => {
     }
   };
 
-  // Partager un reçu
   const shareReceipt = async () => {
     if (!selectedReceipt?.uri) {
       alert('Reçu non disponible');
@@ -532,13 +523,11 @@ const PaymentsScreen = () => {
     }
     
     try {
-      // Vérifier si le partage est disponible
       if (!(await Sharing.isAvailableAsync())) {
         alert("Le partage n'est pas disponible sur votre appareil");
         return;
       }
 
-      // Partager le fichier PDF
       await Sharing.shareAsync(selectedReceipt.uri, {
         mimeType: 'application/pdf',
         dialogTitle: 'Partager le reçu',
@@ -550,13 +539,11 @@ const PaymentsScreen = () => {
     }
   };
 
-  // Rendu d'un élément d'historique
   const renderHistoryItem = ({ item }: { item: any }) => (
     <Animated.View entering={FadeInDown.duration(500)}>
       <TouchableOpacity 
         className="bg-white/5 rounded-xl p-4 mb-3"
         onPress={() => {
-          // Afficher le reçu seulement pour les retraits complétés avec reçu
           if (item.type === 'withdrawal' && item.status === 'completed' && item.receiptId) {
             const receipt = receipts.find(r => r.id === item.receiptId);
             if (receipt) {
@@ -599,7 +586,6 @@ const PaymentsScreen = () => {
     </Animated.View>
   );
 
-  // Rendu d'un événement
   const renderEventItem = ({ item }: { item: any }) => (
     <Animated.View entering={FadeInDown.duration(500)}>
       <View className="bg-white/5 rounded-xl p-4 mb-3">
@@ -640,7 +626,6 @@ const PaymentsScreen = () => {
   return (
     <BackgroundWrapper>
       <View className="flex-1 px-4 pt-16">
-        {/* En-tête */}
         <View className="flex-row justify-between items-center mb-4">
           <Text className="text-white text-2xl font-bold">Paiements</Text>
           <TouchableOpacity className="bg-teal-400/10 p-2 rounded-full">
@@ -648,7 +633,6 @@ const PaymentsScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Onglets */}
         <View className="flex-row justify-between bg-teal-400/10 rounded-xl p-1 mb-6">
           <TouchableOpacity 
             className={`flex-1 py-3 rounded-xl ${activeTab === 'balance' ? 'bg-teal-400' : ''}`}
@@ -696,7 +680,6 @@ const PaymentsScreen = () => {
                 </View>
               </View>
               
-              {/* Dernier retrait */}
               <View className="bg-white/5 rounded-xl p-4 mb-6">
                 <Text className="text-white font-bold mb-3">Dernier retrait</Text>
                 
@@ -724,7 +707,6 @@ const PaymentsScreen = () => {
                 </View>
               </View>
               
-              {/* Bouton de retrait */}
               <TouchableOpacity 
                 className="bg-teal-400 py-4 rounded-xl flex-row items-center justify-center mb-10"
                 onPress={() => setIsWithdrawalModalVisible(true)}
@@ -742,7 +724,6 @@ const PaymentsScreen = () => {
             </Animated.View>
           </ScrollView>
         ) : activeTab === 'history' ? (
-          // Onglet Historique
           <FlatList
             data={paymentHistory}
             renderItem={renderHistoryItem}
@@ -776,7 +757,6 @@ const PaymentsScreen = () => {
         )}
       </View>
 
-      {/* Modal de demande de retrait */}
       <Modal
         visible={isWithdrawalModalVisible}
         animationType="slide"
@@ -796,7 +776,6 @@ const PaymentsScreen = () => {
                 </TouchableOpacity>
               </View>
               
-              {/* Montant */}
               <View className="mb-4">
                 <Text className="text-teal-400 mb-2">Montant à retirer (MRO)</Text>
                 <View className="bg-white/10 rounded-xl p-4 flex-row items-center">
@@ -817,7 +796,6 @@ const PaymentsScreen = () => {
                 </Text>
               </View>
               
-              {/* Méthode de retrait */}
               <View className="mb-6">
                 <Text className="text-teal-400 mb-2">Méthode de retrait</Text>
                 <View className="flex-row justify-between">
@@ -862,7 +840,6 @@ const PaymentsScreen = () => {
                 </View>
               </View>
               
-              {/* Informations supplémentaires pour les virements bancaires */}
               {withdrawalMethod === 'bank' && (
                 <View className="mb-4">
                   <Text className="text-teal-400 mb-2">Informations bancaires</Text>
@@ -906,7 +883,6 @@ const PaymentsScreen = () => {
                 </View>
               )}
               
-              {/* Frais de transaction */}
               <View className="bg-yellow-500/10 rounded-xl p-4 mb-4">
                 <View className="flex-row justify-between items-center">
                   <Text className="text-yellow-400">Frais de transaction:</Text>
@@ -919,7 +895,6 @@ const PaymentsScreen = () => {
                 </Text>
               </View>
               
-              {/* Montant reçu */}
               <View className="bg-green-500/10 rounded-xl p-4 mb-4">
                 <View className="flex-row justify-between items-center">
                   <Text className="text-green-400">Montant reçu:</Text>
@@ -934,7 +909,6 @@ const PaymentsScreen = () => {
                 </Text>
               </View>
               
-              {/* Bouton de confirmation */}
               <TouchableOpacity 
                 className={`py-4 rounded-xl ${isProcessing ? 'bg-gray-400' : 'bg-teal-400'}`}
                 onPress={requestWithdrawal}
@@ -949,7 +923,6 @@ const PaymentsScreen = () => {
         </View>
       </Modal>
 
-      {/* Modal de reçu */}
       <Modal
         visible={isReceiptModalVisible}
         animationType="slide"

@@ -6,7 +6,6 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Types
 type EventStatus = 'published' | 'draft' | 'completed';
 
 interface TicketType {
@@ -59,7 +58,6 @@ const OrganizerEvents = () => {
     { id: 'Autre', name: 'Autre', icon: 'ellipse' },
   ];
 
-  // Fonction pour récupérer les événements depuis l'API
   const fetchEvents = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -83,9 +81,7 @@ const OrganizerEvents = () => {
 
       const data = await response.json();
 
-      // Transformer les données de l'API pour correspondre à notre interface
       const transformedEvents: Event[] = data.map((event: any) => {
-        // Déterminer le statut basé sur isActive et la date
         let status: EventStatus = 'draft';
         const eventDate = new Date(event.date);
         const now = new Date();
@@ -94,11 +90,10 @@ const OrganizerEvents = () => {
           status = eventDate > now ? 'published' : 'completed';
         }
 
-        // Transformer les tickets
         const tickets: TicketType[] = event.ticket.map((ticket: any) => ({
           id: ticket._id,
           name: ticket.type,
-          price: 0, // L'API ne semble pas fournir de prix, à adapter si disponible
+          price: 0,
           quantity: ticket.totalTickets,
           sold: ticket.totalTickets - ticket.availableTickets,
         }));
@@ -139,37 +134,30 @@ const OrganizerEvents = () => {
     }
   };
 
-  // Charger les événements au montage du composant
   useEffect(() => {
     fetchEvents();
   }, []);
 
-  // Rafraîchir manuellement
   const handleRefresh = () => {
     setRefreshing(true);
     fetchEvents();
   };
 
-  // Calculer le revenu total pour un événement
   const calculateTotalRevenue = (tickets: TicketType[]) => {
     return tickets.reduce((total, ticket) => total + (ticket.price * ticket.sold), 0);
   };
 
-  // Appliquer les filtres
   const applyFilters = () => {
     let result = [...events];
 
-    // Filtre par statut
     if (selectedStatus !== 'all') {
       result = result.filter(event => event.status === selectedStatus);
     }
 
-    // Filtre par catégorie
     if (selectedCategory !== 'all') {
       result = result.filter(event => event.category === selectedCategory);
     }
 
-    // Filtre par recherche
     if (searchQuery) {
       result = result.filter(event =>
         event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -177,7 +165,6 @@ const OrganizerEvents = () => {
       );
     }
 
-    // Appliquer le tri
     result.sort((a, b) => {
       if (sortOption === 'date') {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -211,7 +198,6 @@ const OrganizerEvents = () => {
       });
 
       if (response.ok) {
-        // Mettre à jour la liste des événements localement
         setEvents(events.filter(event => event.id !== id));
         Alert.alert("Succès", "Événement supprimé avec succès");
       } else {
@@ -228,7 +214,6 @@ const OrganizerEvents = () => {
     router.push('/organizer/create-event');
   };
 
-  // Effet pour animer l'apparition
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -237,26 +222,22 @@ const OrganizerEvents = () => {
     }).start();
   }, []);
 
-  // Effet pour appliquer les filtres lors des changements
   useEffect(() => {
     applyFilters();
   }, [searchQuery, sortOption, events]);
 
-  // Rendu d'un événement
   const renderEventItem = ({ item }: { item: Event }) => {
     const totalRevenue = calculateTotalRevenue(item.tickets);
     const totalSold = item.tickets.reduce((sum, ticket) => sum + ticket.sold, 0);
     const totalTickets = item.tickets.reduce((sum, ticket) => sum + ticket.quantity, 0);
     const progress = totalTickets > 0 ? (totalSold / totalTickets) * 100 : 0;
 
-    // Image par défaut si aucune image n'est fournie
     const imageSource = item.image
       ? { uri: item.image }
-      : { uri: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80' };
+      : { uri: 'https://i.postimg.cc/DfMFF7hk/476089770-1317719446099312-2542227566238149344-n.jpg' };
 
     return (
       <Animated.View style={{ opacity: fadeAnim }} className="bg-white/5 rounded-xl p-4 mb-4 overflow-hidden">
-        {/* En-tête avec image et statut */}
         <View className="flex-row">
           <Image
             source={imageSource}
@@ -278,7 +259,6 @@ const OrganizerEvents = () => {
               </View>
             </View>
 
-            {/* Date et lieu */}
             <View className="flex-row items-center mb-1">
               <Ionicons name="calendar" size={14} color="#68f2f4" />
               <Text className="text-teal-400 ml-2 text-xs">{item.date} • {item.time}</Text>
@@ -288,7 +268,6 @@ const OrganizerEvents = () => {
               <Text className="text-teal-400 ml-2 text-xs">{item.location}</Text>
             </View>
 
-            {/* Barre de progression */}
             <View className="mt-2">
               <View className="flex-row justify-between mb-1">
                 <Text className="text-teal-400 text-xs">
@@ -308,7 +287,6 @@ const OrganizerEvents = () => {
               </View>
             </View>
 
-            {/* Revenus */}
             <View className="flex-row justify-between items-center mt-2">
               <Text className="text-white font-bold text-sm">{totalRevenue.toLocaleString()} MRO</Text>
               <Text className="text-teal-400 text-xs">Revenus générés</Text>
@@ -316,7 +294,6 @@ const OrganizerEvents = () => {
           </View>
         </View>
 
-        {/* Actions */}
         <View className="flex-row justify-between mt-4 border-t border-white/10 pt-3">
           <TouchableOpacity
             className="flex-row items-center"
@@ -359,7 +336,6 @@ const OrganizerEvents = () => {
   return (
     <BackgroundWrapper>
       <View className="flex-1 px-4 pt-16">
-        {/* En-tête avec titre et bouton de création */}
         <View className="flex-row justify-between items-center mb-4">
           <Text className="text-white text-2xl font-bold">Événements</Text>
           <TouchableOpacity
@@ -371,7 +347,6 @@ const OrganizerEvents = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Barre de recherche et filtres */}
         <View className="flex-row mb-4">
           <View className="flex-1 bg-white/10 rounded-xl px-4 py-2 mr-3 flex-row items-center">
             <Ionicons name="search" size={20} color="#68f2f4" />
@@ -397,7 +372,6 @@ const OrganizerEvents = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Liste des événements */}
         <FlatList
           data={filteredEvents}
           renderItem={renderEventItem}
@@ -424,7 +398,6 @@ const OrganizerEvents = () => {
           }
         />
       </View>
-      {/* Modal des filtres */}
       <Modal
         visible={isFilterModalVisible}
         animationType="slide"
@@ -440,7 +413,6 @@ const OrganizerEvents = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Filtre par statut */}
             <Text className="text-teal-400 font-medium mb-2">Statut</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
               <View className="flex-row">
@@ -483,7 +455,6 @@ const OrganizerEvents = () => {
               </View>
             </ScrollView>
 
-            {/* Filtre par catégorie */}
             <Text className="text-teal-400 font-medium mb-2">Catégorie</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
               <View className="flex-row">
@@ -509,7 +480,6 @@ const OrganizerEvents = () => {
               </View>
             </ScrollView>
 
-            {/* Boutons d'action */}
             <View className="flex-row justify-between">
               <TouchableOpacity
                 className="bg-white/10 py-3 px-6 rounded-full flex-1 mr-3"
@@ -531,7 +501,6 @@ const OrganizerEvents = () => {
         </View>
       </Modal>
 
-      {/* Modal de tri */}
       <Modal
         visible={isSortModalVisible}
         animationType="slide"
@@ -587,21 +556,5 @@ const OrganizerEvents = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  eventCard: {
-    shadowColor: '#68f2f4',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3
-  },
-  filterCard: {
-    shadowColor: '#68f2f4',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2
-  }
-});
 
 export default OrganizerEvents;

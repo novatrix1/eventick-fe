@@ -14,7 +14,6 @@ const EditEvent = () => {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
 
-  // États pour les données de l'événement
   const [eventData, setEventData] = useState({
     title: '',
     description: '',
@@ -31,30 +30,25 @@ const EditEvent = () => {
     promoEndDate: new Date(),
   })
 
-  // États pour les types de billets
   const [ticketTypes, setTicketTypes] = useState([
     { id: '1', name: 'Standard', price: '', description: 'Accès standard à l\'événement', quantity: '' },
   ])
 
-  // États pour les sélecteurs de date/heure
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [showStartTimePicker, setShowStartTimePicker] = useState(false)
   const [showEndTimePicker, setShowEndTimePicker] = useState(false)
   const [showPromoEndDatePicker, setShowPromoEndDatePicker] = useState(false)
 
-  // Catégories disponibles
   const categories = [
     'Concert', 'Religion', 'Sport', 'Culture',
     'Business', 'Festival', 'Conférence', 'Théâtre', 'Autre'
   ]
 
-  // Villes de Mauritanie
   const mauritaniaCities = [
     'Nouakchott', 'Nouadhibou', 'Atar', 'Kaédi', 'Kiffa',
     'Rosso', 'Zouerate', 'Aleg', 'Sélibaby', 'Tidjikja'
   ]
 
-  // Gestion des changements de date/heure
   const handleDateChange = (event: any, selectedDate?: Date) => {
     const currentDate = selectedDate || eventData.date
     setShowDatePicker(Platform.OS === 'ios')
@@ -79,7 +73,6 @@ const EditEvent = () => {
     setEventData({ ...eventData, promoEndDate: currentDate })
   }
 
-  // Ajouter un nouveau type de billet
   const addTicketType = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     const newId = (ticketTypes.length + 1).toString()
@@ -89,7 +82,6 @@ const EditEvent = () => {
     ])
   }
 
-  // Supprimer un type de billet
   const removeTicketType = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     if (ticketTypes.length > 1) {
@@ -104,7 +96,6 @@ const EditEvent = () => {
     ))
   }
 
-  // Sélectionner une image
   const pickImage = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -119,14 +110,11 @@ const EditEvent = () => {
     }
   }
 
-  // Soumettre l'événement
   const handleSubmit = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-    // Ici, vous ajouteriez la logique pour sauvegarder l'événement
     router.back()
   }
 
-  // Formater la date pour l'affichage
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('fr-FR', {
       day: '2-digit',
@@ -135,7 +123,6 @@ const EditEvent = () => {
     })
   }
 
-  // Formater l'heure pour l'affichage
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('fr-FR', {
       hour: '2-digit',
@@ -143,7 +130,6 @@ const EditEvent = () => {
     })
   }
 
-  // Navigation entre les étapes
   const goToNextStep = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     if (currentStep < 5) {
@@ -158,7 +144,6 @@ const EditEvent = () => {
     }
   }
 
-  // Barre de progression
   const ProgressBar = () => {
     return (
       <View className="flex-row items-center justify-between mb-6">
@@ -186,20 +171,16 @@ const EditEvent = () => {
     )
   }
 
-  // Étape 1: Informations de base
-  // Étape 1: Informations de base avec Dropdown pour la catégorie
   const Step1 = () => {
     const [categoryDropdown, setCategoryDropdown] = useState(eventData.category);
 
     return (
       <Animated.View entering={FadeInDown.duration(500)} className="px-4 py-6">
 
-        {/* Titre de l'étape */}
         <Text className="text-white text-2xl font-extrabold mb-6">
           Étape 1/5 : Informations de base
         </Text>
 
-        {/* Section Image */}
         <View className="mb-8">
           <Text className="text-white text-xl font-semibold mb-3">
             Image de l'événement
@@ -226,10 +207,8 @@ const EditEvent = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Formulaire */}
         <View className="space-y-6">
 
-          {/* Titre */}
           <View>
             <Text className="text-teal-400 text-lg mb-2 font-medium">
               Titre de l'événement
@@ -243,7 +222,6 @@ const EditEvent = () => {
             />
           </View>
 
-          {/* Description */}
           <View>
             <Text className="text-teal-400 text-lg mb-2 font-medium">
               Description
@@ -259,7 +237,6 @@ const EditEvent = () => {
             />
           </View>
 
-          {/* Catégorie - Dropdown */}
           <View>
             <Text className="text-teal-400 text-lg mb-2 font-medium">Catégorie</Text>
             <Dropdown
@@ -320,18 +297,15 @@ const EditEvent = () => {
     );
   };
 
-  // Étape 2: Date et heure
   const Step2 = () => (
     <Animated.View entering={FadeInDown.duration(500)} className="px-4 py-6">
 
-      {/* Titre de l'étape */}
       <Text className="text-white text-2xl font-extrabold mb-6">
         Étape 2/5 : Date et heure
       </Text>
 
       <View className="space-y-6">
 
-        {/* Date */}
         <View>
           <Text className="text-teal-400 text-lg mb-2 font-medium">Date</Text>
           <TouchableOpacity
@@ -353,10 +327,8 @@ const EditEvent = () => {
           )}
         </View>
 
-        {/* Heure de début et de fin */}
         <View className="flex-row justify-between space-x-4">
 
-          {/* Heure de début */}
           <View className="flex-1">
             <Text className="text-teal-400 text-lg mb-2 font-medium">Heure de début</Text>
             <TouchableOpacity
@@ -377,7 +349,6 @@ const EditEvent = () => {
             )}
           </View>
 
-          {/* Heure de fin */}
           <View className="flex-1">
             <Text className="text-teal-400 text-lg mb-2 font-medium">Heure de fin</Text>
             <TouchableOpacity
@@ -405,26 +376,23 @@ const EditEvent = () => {
   );
 
 
-  // Étape 3: Lieu
   const Step3 = () => {
     const [cityDropdown, setCityDropdown] = useState(eventData.location);
 
     return (
       <Animated.View entering={FadeInDown.duration(500)} className="px-4 py-6">
 
-        {/* Titre */}
         <Text className="text-white text-2xl font-extrabold mb-6">
           Étape 3/5 : Lieu
         </Text>
 
         <View className="space-y-6">
 
-          {/* Ville - Dropdown stylé */}
           <View>
             <Text className="text-teal-400 text-lg mb-2 font-medium">Ville</Text>
             <Dropdown
               style={{
-                backgroundColor: 'rgba(32,166,167,0.2)', // couleur légère pour le champ
+                backgroundColor: 'rgba(32,166,167,0.2)', 
                 borderRadius: 16,
                 paddingHorizontal: 16,
                 height: 55,
@@ -444,7 +412,7 @@ const EditEvent = () => {
               searchPlaceholder="Recherchez une ville..."
               placeholderTextColor="#9ca3af"
               searchStyle={{
-                backgroundColor: 'rgba(32,166,167,0.2)', // champ de recherche cohérent
+                backgroundColor: 'rgba(32,166,167,0.2)', 
                 borderRadius: 12,
                 paddingHorizontal: 12,
                 height: 45,
@@ -452,14 +420,14 @@ const EditEvent = () => {
                 marginBottom: 8,
               }}
               dropdownStyle={{
-                backgroundColor: '#20a6a7', // fond du tableau
+                backgroundColor: '#20a6a7', 
                 borderRadius: 16,
                 maxHeight: 250,
               }}
               renderItem={item => (
                 <View
                   style={{
-                    backgroundColor: '#20a6a7', // fond de chaque option
+                    backgroundColor: '#20a6a7',
                     paddingVertical: 12,
                     paddingHorizontal: 16,
                     borderBottomWidth: 0.5,
@@ -475,7 +443,6 @@ const EditEvent = () => {
             />
           </View>
 
-          {/* Salle / lieu spécifique */}
           <View>
             <Text className="text-teal-400 text-lg mb-2 font-medium">Salle / lieu spécifique</Text>
             <TextInput
@@ -487,7 +454,6 @@ const EditEvent = () => {
             />
           </View>
 
-          {/* Capacité totale */}
           <View>
             <Text className="text-teal-400 text-lg mb-2 font-medium">Capacité totale</Text>
             <TextInput
@@ -506,16 +472,13 @@ const EditEvent = () => {
   };
 
 
-  // Étape 4: Promotion
   const Step4 = () => (
     <Animated.View entering={FadeInDown.duration(500)} className="px-4 py-6">
 
-      {/* Titre de l'étape */}
       <Text className="text-white text-2xl font-extrabold mb-6">
         Étape 4/5 : Promotion
       </Text>
 
-      {/* Switch promotion */}
       <View className="flex-row items-center justify-between mb-6">
         <Text className="text-white text-lg font-medium">Activer une promotion</Text>
         <TouchableOpacity
@@ -534,14 +497,11 @@ const EditEvent = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Contenu promotion */}
       {eventData.isPromo && (
         <View className="space-y-6">
 
-          {/* Pourcentage et date */}
           <View className="flex-row justify-between space-x-4">
 
-            {/* Pourcentage */}
             <View className="flex-1">
               <Text className="text-teal-400 text-lg mb-2 font-medium">Pourcentage de réduction</Text>
               <TextInput
@@ -556,7 +516,6 @@ const EditEvent = () => {
               />
             </View>
 
-            {/* Fin de promotion */}
             <View className="flex-1">
               <Text className="text-teal-400 text-lg mb-2 font-medium">Fin de la promotion</Text>
               <TouchableOpacity
@@ -579,7 +538,6 @@ const EditEvent = () => {
             </View>
           </View>
 
-          {/* Info promotion */}
           <View className="bg-teal-400/10 p-4 rounded-2xl">
             <Text className="text-teal-400 text-base">
               La promotion sera automatiquement désactivée après la date de fin spécifiée.
@@ -591,16 +549,13 @@ const EditEvent = () => {
     </Animated.View>
   );
 
-  // Étape 5: Types de billets
   const Step5 = () => (
     <Animated.View entering={FadeInDown.duration(500)} className="px-4 py-6">
 
-      {/* Titre de l'étape */}
       <Text className="text-white text-2xl font-extrabold mb-6">
         Étape 5/5 : Types de billets
       </Text>
 
-      {/* Bouton ajouter */}
       <View className="flex-row justify-between items-center mb-4">
         <Text className="text-white text-lg font-semibold">Types de billets</Text>
         <TouchableOpacity
@@ -623,7 +578,6 @@ const EditEvent = () => {
             key={type.id}
             className="bg-white/10 p-5 rounded-2xl"
           >
-            {/* Header billet */}
             <View className="flex-row justify-between items-start mb-4">
               <Text className="text-white font-semibold text-lg">
                 Type de billet #{index + 1}
@@ -636,7 +590,6 @@ const EditEvent = () => {
             </View>
 
             <View className="space-y-4">
-              {/* Nom */}
               <View>
                 <Text className="text-teal-400 text-lg mb-2 font-medium">Nom</Text>
                 <TextInput
@@ -648,7 +601,6 @@ const EditEvent = () => {
                 />
               </View>
 
-              {/* Prix et quantité */}
               <View className="flex-row justify-between space-x-4">
                 <View className="flex-1">
                   <Text className="text-teal-400 text-lg mb-2 font-medium">Prix (MRO)</Text>
@@ -675,7 +627,6 @@ const EditEvent = () => {
                 </View>
               </View>
 
-              {/* Description */}
               <View>
                 <Text className="text-teal-400 text-lg mb-2 font-medium">Description</Text>
                 <TextInput
@@ -698,7 +649,6 @@ const EditEvent = () => {
   return (
     <BackgroundWrapper>
       <ScrollView className="flex-1 px-4 pt-16 pb-24">
-        {/* En-tête */}
         <View className="flex-row justify-between items-center mb-4">
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={28} color="#68f2f4" />
@@ -709,17 +659,14 @@ const EditEvent = () => {
           <View style={{ width: 28 }} />
         </View>
 
-        {/* Barre de progression */}
         <ProgressBar />
 
-        {/* Affichage de l'étape actuelle */}
         {currentStep === 1 && <Step1 />}
         {currentStep === 2 && <Step2 />}
         {currentStep === 3 && <Step3 />}
         {currentStep === 4 && <Step4 />}
         {currentStep === 5 && <Step5 />}
 
-        {/* Boutons de navigation */}
         <View className="flex-row justify-between mt-8">
           {currentStep > 1 && (
             <TouchableOpacity
