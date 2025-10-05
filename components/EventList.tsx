@@ -39,17 +39,19 @@ const EventList: React.FC<EventListProps> = ({
 
   return (
     <FlatList
-      data={events}
+      data={events.slice(0, 8)} 
       renderItem={({ item }) => (
-        <EventCard 
-          event={item} 
-          onPress={onEventPress} 
+        <EventCard
+          event={item}
+          onPress={onEventPress}
           primaryColor={primaryColor}
+          variant="horizontal" 
         />
       )}
       keyExtractor={item => item._id}
-      scrollEnabled={false}
-      nestedScrollEnabled
+      horizontal={true} 
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
     />
   );
 };
