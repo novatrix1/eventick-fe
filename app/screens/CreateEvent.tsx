@@ -306,7 +306,7 @@ const CreateEvent = () => {
 
   return (
     <BackgroundWrapper>
-      <ScrollView className="flex-1 px-4 pt-16 pb-24">
+      <ScrollView className="flex-1 px-4 pt-16 ">
         {/* En-tête */}
         <View className="flex-row justify-between items-center mb-4">
           <TouchableOpacity onPress={() => router.back()}>
@@ -371,7 +371,7 @@ const CreateEvent = () => {
           />
         )}
 
-        <View className="flex-row justify-between mt-8">
+        <View className="flex-row justify-between pb-20">
           {currentStep > 1 && (
             <TouchableOpacity
               className="bg-white/10 py-3 px-6 rounded-xl flex-row items-center"
