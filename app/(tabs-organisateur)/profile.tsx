@@ -244,7 +244,7 @@ const ProfileScreen = () => {
 
             <TouchableOpacity
               className="flex-row items-center p-5 border-b border-white/20"
-              onPress={logout}
+              onPress={() => router.replace("/(auth)/login")}
               activeOpacity={0.7}
             >
               <Ionicons name="log-out" size={26} color="#FF6347" />
