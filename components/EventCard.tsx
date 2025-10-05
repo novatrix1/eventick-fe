@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Event } from '../types';
-import { formatDate } from '../utils/dateFormatter';
 import { getMinPrice } from '../utils/priceFormatter';
 
 interface EventCardProps {
@@ -44,7 +43,7 @@ const EventCard: React.FC<EventCardProps> = ({
           </Text>
           
           <Text className="text-gray-400 text-xs mt-1">
-            {formatDate(event.date)} • {event.city}
+            {event.date} • {event.city}
           </Text>
 
           <View className="flex-row items-center mt-1">
@@ -84,7 +83,7 @@ const EventCard: React.FC<EventCardProps> = ({
           <Text className="text-white font-bold text-sm mb-1" numberOfLines={1}>
             {event.title}
           </Text>
-          <Text className="text-gray-400 text-xs">{formatDate(event.date)}</Text>
+          <Text className="text-gray-400 text-xs">{event.date}</Text>
           <Text className="text-teal-400 text-xs font-bold mt-1">{minPrice}</Text>
         </View>
       </TouchableOpacity>
@@ -119,7 +118,7 @@ const EventCard: React.FC<EventCardProps> = ({
         <View className="flex-row items-center mb-1">
           <Ionicons name="calendar" size={14} color={primaryColor} />
           <Text className="text-gray-300 text-xs ml-2">
-            {formatDate(event.date)}
+            {event.date}
           </Text>
         </View>
         

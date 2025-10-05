@@ -80,9 +80,9 @@ const TicketsScreen = () => {
 
   return (
     <BackgroundWrapper>
-      <View className="flex-1 px-4 pt-4">
+      <View className="flex-1 px-4 pt-16">
         <View className="flex-row justify-between items-center mb-3">
-          <Text className="text-white text-2xl font-bold">Mes billets</Text>
+          <Text className="text-white text-3xl font-bold">Mes billets</Text>
           <TouchableOpacity
             className="p-2 rounded-full bg-white/10"
             onPress={() => setShowFilterModal(true)}

@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { router } from 'expo-router';
-import BackgroundWrapper from '@/components/BackgroundWrapper';
+import { SafeAreaView } from 'react-native-safe-area-context'; // ✅ version moderne
 import { StatusBar } from 'expo-status-bar';
 
+import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { useEvents } from '@/hooks/useEvents';
 import { useFilters } from '@/hooks/useFilters';
 import { cities, dateFilters, priceFilters, eventTypes } from '@/constants/filters';
@@ -20,7 +28,14 @@ const ExploreScreen = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   const { events, categoryEvents, isLoading, error, refetch, categories } = useEvents();
-  const { searchQuery, setSearchQuery, filters, handleFilterChange, resetFilters, filteredEvents } = useFilters(events);
+  const {
+    searchQuery,
+    setSearchQuery,
+    filters,
+    handleFilterChange,
+    resetFilters,
+    filteredEvents,
+  } = useFilters(events);
 
   const handleEventPress = (eventId: string) => {
     router.push(`/event/${eventId}`);
@@ -34,9 +49,9 @@ const ExploreScreen = () => {
   if (isLoading || error) {
     return (
       <BackgroundWrapper>
-        <LoadingErrorState 
-          isLoading={isLoading} 
-          error={error} 
+        <LoadingErrorState
+          isLoading={isLoading}
+          error={error}
           onRetry={refetch}
           primaryColor={primaryColor}
         />
@@ -46,60 +61,81 @@ const ExploreScreen = () => {
 
   return (
     <BackgroundWrapper>
-      <ScrollView className="flex-1 px-5 pt-16" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <StatusBar style="light" />
-        
-        <SearchHeader
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          onFilterPress={() => setShowFilters(true)}
-          primaryColor={primaryColor}
-        />
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <StatusBar style="light" />
 
-        <CategoryFilter
-          categories={categories}
-          selectedCategory={filters.category}
-          onCategorySelect={(categoryId) => handleFilterChange('category', categoryId)}
-        />
-
-        <View className="mb-8">
-          <View className="flex-row justify-between items-center mb-5">
-            <Text className="text-white text-xl font-bold">
-              {filteredEvents.length} événement{filteredEvents.length !== 1 ? 's' : ''} trouvé{filteredEvents.length !== 1 ? 's' : ''}
-            </Text>
-            <TouchableOpacity 
-              onPress={resetFilters} 
-              accessibilityRole="button"
-              accessibilityLabel="Réinitialiser filtres"
-            >
-              <Text style={{ color: primaryColor }} className="text-sm font-medium">Réinitialiser</Text>
-            </TouchableOpacity>
-          </View>
-
-          <EventList
-            events={filteredEvents}
-            onEventPress={handleEventPress}
-            onResetFilters={resetFilters}
-            primaryColor={primaryColor}
-          />
-        </View>
-
-        {Object.entries(categoryEvents).map(([categoryId, events]) => {
-          const category = categories.find(c => c.id === categoryId);
-          if (!category) return null;
-
-          return (
-            <CategorySection
-              key={categoryId}
-              categoryId={categoryId}
-              category={category}
-              events={events}
-              onEventPress={handleEventPress}
+          <ScrollView
+            className="flex-1 px-5 pt-4"
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{
+              paddingBottom: 85,
+            }}
+          >
+            <SearchHeader
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              onFilterPress={() => setShowFilters(true)}
               primaryColor={primaryColor}
             />
-          );
-        })}
-      </ScrollView>
+
+            <CategoryFilter
+              categories={categories}
+              selectedCategory={filters.category}
+              onCategorySelect={(categoryId) => handleFilterChange('category', categoryId)}
+            />
+
+            <View className="mb-8 mt-2">
+              <View className="flex-row justify-between items-center mb-5">
+                <Text className="text-white text-xl font-bold">
+                  {filteredEvents.length} événement
+                  {filteredEvents.length !== 1 ? 's' : ''} trouvé
+                  {filteredEvents.length !== 1 ? 's' : ''}
+                </Text>
+                <TouchableOpacity
+                  onPress={resetFilters}
+                  accessibilityRole="button"
+                  accessibilityLabel="Réinitialiser filtres"
+                >
+                  <Text
+                    style={{ color: primaryColor }}
+                    className="text-sm font-medium"
+                  >
+                    Réinitialiser
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <EventList
+                events={filteredEvents}
+                onEventPress={handleEventPress}
+                onResetFilters={resetFilters}
+                primaryColor={primaryColor}
+              />
+            </View>
+
+            {Object.entries(categoryEvents).map(([categoryId, events]) => {
+              const category = categories.find((c) => c.id === categoryId);
+              if (!category) return null;
+
+              return (
+                <CategorySection
+                  key={categoryId}
+                  categoryId={categoryId}
+                  category={category}
+                  events={events}
+                  onEventPress={handleEventPress}
+                  primaryColor={primaryColor}
+                />
+              );
+            })}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
 
       <FilterModal
         visible={showFilters}

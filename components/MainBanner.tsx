@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Event } from '../types';
-import { formatDate } from '../utils/dateFormatter';
 
 interface MainBannerProps {
   event: Event;
@@ -49,7 +48,7 @@ const MainBanner: React.FC<MainBannerProps> = ({ event, onPress }) => {
             <View className="flex-row items-center mb-1">
               <Ionicons name="calendar-outline" size={12} color="#ec673b" />
               <Text className="text-white text-xs ml-1">
-                {formatDate(event.date)}
+                {event.date}
               </Text>
             </View>
             <View className="flex-row items-center">

@@ -1,11 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, FlatList, SafeAreaView, RefreshControl } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  FlatList,
+  RefreshControl,
+  Platform,
+  KeyboardAvoidingView,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
-import logo from "../../assets/logo.png";
+import logo from '../../assets/logo.png';
 
 import { Event, Category } from '@/types';
 import { useEvents } from '@/hooks/useEvents';
@@ -66,130 +78,140 @@ const HomeScreen = () => {
   return (
     <BackgroundWrapper>
       <SafeAreaView className="flex-1">
-        <StatusBar style="light" />
-        <ScrollView
-          className="flex-1 px-5 pt-2 pb-16"
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#ec673b']}
-              tintColor={'#ec673b'}
-            />
-          }
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          className="flex-1"
         >
-          {/* Header */}
-          <View className="flex-row justify-between items-center mb-3">
-            <Image
-              source={logo}
-              className="w-28 h-28 rounded-full"
-              resizeMode="contain"
-            />
-            <View className="flex-row space-x-6">
-              <TouchableOpacity activeOpacity={0.7}
-                onPress={() => router.push('/notification')}
-              >
-                <Ionicons name="notifications-outline" size={30} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Bannière principale */}
-          {events.length > 0 && (
-            <MainBanner 
-              event={events[0]} 
-              onPress={handleEventPress} 
-            />
-          )}
-
-          <View className="flex-row justify-between items-center mb-5">
-            <Text className="text-white text-xl font-extrabold">Catégories</Text>
-          </View>
-          <FlatList
-            horizontal
-            data={categories}
-            renderItem={({ item }) => (
-              <CategoryItem
-                category={item}
-                isSelected={selectedCategory === item.id}
-                onPress={setSelectedCategory}
+          <StatusBar style="light" />
+          <ScrollView
+            className="flex-1 px-5 pt-2"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingBottom: 85,
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#ec673b']}
+                tintColor={'#ec673b'}
               />
-            )}
-            keyExtractor={(item) => item.id}
-            showsHorizontalScrollIndicator={false}
-          />
+            }
+          >
+            {/* Header */}
+            <View className="flex-row justify-between items-center mb-3">
+              <Image
+                source={logo}
+                className="w-28 h-28 rounded-full"
+                resizeMode="contain"
+              />
+              <View className="flex-row space-x-6">
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => router.push('/notification')}
+                >
+                  <Ionicons name="notifications-outline" size={30} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-          <View className="flex-row justify-between items-center mt-8 mb-5">
-            <Text className="text-white text-xl font-extrabold">Pour vous</Text>
-            <TouchableOpacity onPress={() => router.push('/explore')}>
-              <Text className="text-[#ec673b] text-sm font-semibold">Voir tout</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {filteredEvents.length > 0 ? (
+            {/* Bannière principale */}
+            {events.length > 0 && (
+              <MainBanner event={events[0]} onPress={handleEventPress} />
+            )}
+
+            {/* Catégories */}
+            <View className="flex-row justify-between items-center mb-5 mt-3">
+              <Text className="text-white text-xl font-extrabold">Catégories</Text>
+            </View>
             <FlatList
               horizontal
-              data={filteredEvents}
+              data={categories}
               renderItem={({ item }) => (
-                <EventCard event={item} onPress={handleEventPress} />
-              )}
-              keyExtractor={(item) => item._id}
-              showsHorizontalScrollIndicator={false}
-            />
-          ) : (
-            <View className="py-10 items-center justify-center">
-              <Ionicons name="calendar-outline" size={50} color="#68f2f4" />
-              <Text className="text-white mt-4 text-center">
-                Aucun événement dans cette catégorie
-              </Text>
-            </View>
-          )}
-
-          <View className="flex-row justify-between items-center mt-8 mb-5">
-            <Text className="text-white text-xl font-extrabold">À {userCity}</Text>
-            <TouchableOpacity onPress={getUserLocation}>
-              <Text className="text-teal-400 text-sm font-semibold">Actualiser</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <LocationSection
-            isLocating={isLocating}
-            userCity={userCity}
-            nearbyEvents={nearbyEvents}
-            onRefreshLocation={getUserLocation}
-            onEventPress={handleEventPress}
-          />
-
-          <View className="flex-row justify-between items-center mt-8 mb-5">
-            <Text className="text-white text-xl font-extrabold">Populaires</Text>
-            <TouchableOpacity onPress={() => router.push('/explore')}>
-              <Text className="text-[#ec673b] text-sm font-semibold">Voir tout</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {popularEvents.length > 0 ? (
-            <FlatList
-              data={popularEvents}
-              renderItem={({ item }) => (
-                <EventCard 
-                  event={item} 
-                  onPress={handleEventPress} 
-                  variant="horizontal" 
+                <CategoryItem
+                  category={item}
+                  isSelected={selectedCategory === item.id}
+                  onPress={setSelectedCategory}
                 />
               )}
-              keyExtractor={(item) => item._id}
-              scrollEnabled={false}
+              keyExtractor={item => item.id}
+              showsHorizontalScrollIndicator={false}
             />
-          ) : (
-            <View className="py-6 bg-teal-400/10 rounded-xl items-center justify-center">
-              <Ionicons name="flame-outline" size={40} color="#68f2f4" />
-              <Text className="text-white mt-2 text-center">
-                Aucun événement populaire pour le moment
-              </Text>
+
+            {/* Section "Pour vous" */}
+            <View className="flex-row justify-between items-center mt-8 mb-5">
+              <Text className="text-white text-xl font-extrabold">Pour vous</Text>
+              <TouchableOpacity onPress={() => router.push('/explore')}>
+                <Text className="text-[#ec673b] text-sm font-semibold">Voir tout</Text>
+              </TouchableOpacity>
             </View>
-          )}
-        </ScrollView>
+
+            {filteredEvents.length > 0 ? (
+              <FlatList
+                horizontal
+                data={filteredEvents}
+                renderItem={({ item }) => (
+                  <EventCard event={item} onPress={handleEventPress} />
+                )}
+                keyExtractor={item => item._id}
+                showsHorizontalScrollIndicator={false}
+              />
+            ) : (
+              <View className="py-10 items-center justify-center">
+                <Ionicons name="calendar-outline" size={50} color="#68f2f4" />
+                <Text className="text-white mt-4 text-center">
+                  Aucun événement dans cette catégorie
+                </Text>
+              </View>
+            )}
+
+            {/* Section "À votre ville" */}
+            <View className="flex-row justify-between items-center mt-8 mb-5">
+              <Text className="text-white text-xl font-extrabold">À {userCity}</Text>
+              <TouchableOpacity onPress={getUserLocation}>
+                <Text className="text-teal-400 text-sm font-semibold">Actualiser</Text>
+              </TouchableOpacity>
+            </View>
+
+            <LocationSection
+              isLocating={isLocating}
+              userCity={userCity}
+              nearbyEvents={nearbyEvents}
+              onRefreshLocation={getUserLocation}
+              onEventPress={handleEventPress}
+            />
+
+            {/* Section "Populaires" */}
+            <View className="flex-row justify-between items-center mt-8 mb-5">
+              <Text className="text-white text-xl font-extrabold">Populaires</Text>
+              <TouchableOpacity onPress={() => router.push('/explore')}>
+                <Text className="text-[#ec673b] text-sm font-semibold">Voir tout</Text>
+              </TouchableOpacity>
+            </View>
+
+            {popularEvents.length > 0 ? (
+              <FlatList
+                data={popularEvents}
+                renderItem={({ item }) => (
+                  <EventCard
+                    event={item}
+                    onPress={handleEventPress}
+                    variant="horizontal"
+                  />
+                )}
+                keyExtractor={item => item._id}
+                scrollEnabled={false}
+              />
+            ) : (
+              <View className="py-6 bg-teal-400/10 rounded-xl items-center justify-center mb-10">
+                <Ionicons name="flame-outline" size={40} color="#68f2f4" />
+                <Text className="text-white mt-2 text-center">
+                  Aucun événement populaire pour le moment
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </BackgroundWrapper>
   );
