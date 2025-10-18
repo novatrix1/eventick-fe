@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Image, TouchableOpacity, TextInput, Alert, Animated, SafeAreaView, ScrollView, Keyboard, ActivityIndicator } from 'react-native';
+import { View, Text, Image, TouchableOpacity, TextInput, Alert, SafeAreaView, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 
 const API_URL = "https://eventick.onrender.com";
 
@@ -33,27 +34,30 @@ const paymentMethodsData = [
     name: 'Bankily',
     icon: 'phone-portrait-outline',
     requirements: "Paiement via l'application Bankily",
-    image: require('@/assets/payment/bankily.png')
+    image: require('@/assets/payment/bankily.png'),
+    receiverNumber: '34326830' 
   },
   {
     id: 'masrvi',
     name: 'Masrvi',
     icon: 'phone-portrait-outline',
     requirements: "Paiement via l'application Masrvi",
-    image: require('@/assets/payment/masrvi.png')
+    image: require('@/assets/payment/masrvi.png'),
+    receiverNumber: '45454545' 
   },
   {
     id: 'bimbank',
     name: 'BimBank',
     icon: 'phone-portrait-outline',
     requirements: "Paiement via l'application BimBank",
-    image: require('@/assets/payment/bimbank.png')
+    image: require('@/assets/payment/bimbank.png'),
+    receiverNumber: '56565656' 
   }
 ];
 
 const ReservationScreen = () => {
   const { id: eventId, ticketTypeId, quantity, price, eventTitle, eventDate } = useLocalSearchParams();
-  
+
   const [currentStep, setCurrentStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('bankily');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -64,6 +68,13 @@ const ReservationScreen = () => {
   const [ticketType, setTicketType] = useState<TicketType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [confirmationNumber, setConfirmationNumber] = useState('');
+
+  // Nouveaux états pour le paiement
+  const [senderNumber, setSenderNumber] = useState('');
+  const [transactionID, setTransactionID] = useState('');
+  const [paymentProof, setPaymentProof] = useState<string | null>(null);
+  const [receiverNumber, setReceiverNumber] = useState('34326830'); // Valeur par défaut
+
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -74,9 +85,9 @@ const ReservationScreen = () => {
         const response = await axios.get(`${API_URL}/api/events/${eventId}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         });
-        
+
         setEvent(response.data);
-        
+
         if (response.data.ticket && response.data.ticket.length > 0) {
           const selectedTicket = response.data.ticket.find((t: any) => t._id === ticketTypeId);
           if (selectedTicket) {
@@ -96,13 +107,20 @@ const ReservationScreen = () => {
     }
   }, [eventId, ticketTypeId]);
 
+  useEffect(() => {
+    const selectedMethod = paymentMethodsData.find(method => method.id === paymentMethod);
+    if (selectedMethod) {
+      setReceiverNumber(selectedMethod.receiverNumber);
+    }
+  }, [paymentMethod]);
+
   const totalPrice = ticketType ? (ticketType.price * Number(quantity)) : 0;
 
   const nextStep = () => {
-    if (currentStep < 2) {
+    if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
       scrollToTop();
-    } else if (currentStep === 2) {
+    } else if (currentStep === 3) {
       handlePayment();
     }
   };
@@ -118,30 +136,75 @@ const ReservationScreen = () => {
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   };
 
+  const pickImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permissionResult.granted) {
+        Alert.alert('Permission requise', 'Vous devez autoriser l\'accès à la galerie pour téléverser une image.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setPaymentProof(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Erreur', 'Impossible de sélectionner l\'image');
+    }
+  };
+
   const handlePayment = async () => {
     if (!acceptedTerms) {
       Alert.alert('Erreur', 'Veuillez accepter les conditions générales');
       return;
     }
-    
+
+    if (!senderNumber.trim()) {
+      Alert.alert('Erreur', 'Veuillez saisir votre numéro');
+      return;
+    }
+
+    if (!transactionID.trim()) {
+      Alert.alert('Erreur', 'Veuillez saisir l\'ID de transaction');
+      return;
+    }
+
+    if (!paymentProof) {
+      Alert.alert('Erreur', 'Veuillez téléverser une preuve de paiement');
+      return;
+    }
+
     setIsProcessing(true);
-    
+
     try {
       const token = await AsyncStorage.getItem('token');
       if (!token) {
-        Alert.alert('Erreur', 'Vous devez être connecté pour réserver');
+        Alert.alert('Erreur', 'Vous devez être connecté pour effectuer un paiement');
         setIsProcessing(false);
         return;
       }
 
-      const bookingData = {
-        eventId,
-        ticketTypeId,
-        quantity: Number(quantity),
-        paymentMethod,
+      const paymentData = {
+        paymentType: paymentMethod,
+        amount: totalPrice,
+        receiver: null,
+        receiverNumber: receiverNumber,
+        senderNumber: senderNumber,
+        event: eventId,
+        ticket: ticketTypeId,
+        paymentProof: paymentProof,
+        transactionID: transactionID,
       };
 
-      const response = await axios.post(`${API_URL}/api/tickets/book`, bookingData, {
+      const response = await axios.post(`${API_URL}/api/payments/create`, paymentData, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -149,17 +212,17 @@ const ReservationScreen = () => {
       });
 
       if (response.data.success) {
-        setConfirmationNumber(response.data.bookingRef || Date.now().toString());
+        setConfirmationNumber(response.data.paymentRef || Date.now().toString());
         setIsProcessing(false);
         setIsPending(true);
       } else {
-        throw new Error(response.data.message || 'Erreur lors de la réservation');
+        throw new Error(response.data.message || 'Erreur lors du paiement');
       }
     } catch (error: any) {
-      console.error('Booking error:', error);
+      console.error('Payment error:', error);
       Alert.alert(
-        'Erreur de réservation', 
-        error.response?.data?.message || error.message || 'Une erreur est survenue lors de la réservation'
+        'Erreur de paiement',
+        error.response?.data?.message || error.message || 'Une erreur est survenue lors du paiement'
       );
       setIsProcessing(false);
     }
@@ -192,7 +255,7 @@ const ReservationScreen = () => {
               <Text className="text-teal-400 text-xl text-center mb-8">
                 Votre paiement pour "{event?.title}" est en cours de vérification.
               </Text>
-              
+
               <View className="bg-white/10 rounded-xl p-6 w-full mb-8">
                 <Text className="text-white font-bold text-center mb-3 text-lg">
                   Numéro de confirmation
@@ -201,11 +264,11 @@ const ReservationScreen = () => {
                   #{confirmationNumber}
                 </Text>
               </View>
-              
+
               <Text className="text-gray-400 text-center text-base mt-6">
                 Merci pour votre patience. Votre réservation sera validée après vérification de votre paiement.
               </Text>
-              
+
               <TouchableOpacity
                 className="mt-8 bg-[#ec673b] py-4 px-8 rounded-full"
                 onPress={() => router.replace('/tickets')}
@@ -223,26 +286,26 @@ const ReservationScreen = () => {
     <BackgroundWrapper>
       <SafeAreaView className="flex-1">
         <View className="flex-row justify-between items-center px-6 pt-6">
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={prevStep}
             disabled={currentStep === 1}
             className={`p-3 rounded-full ${currentStep === 1 ? 'opacity-30' : 'bg-white/10'}`}
           >
-            <Ionicons 
-              name="arrow-back" 
-              size={28} 
-              color={currentStep === 1 ? "#9CA3AF" : "#68f2f4"} 
+            <Ionicons
+              name="arrow-back"
+              size={28}
+              color={currentStep === 1 ? "#9CA3AF" : "#68f2f4"}
             />
           </TouchableOpacity>
-          
+
           <Text className="text-white font-bold text-lg">
-            Étape {currentStep}/2
+            Étape {currentStep}/3
           </Text>
-          
+
           <View className="w-12" />
         </View>
-        
-        <ScrollView 
+
+        <ScrollView
           ref={scrollViewRef}
           className="flex-1 px-6 pt-6"
           showsVerticalScrollIndicator={false}
@@ -251,7 +314,7 @@ const ReservationScreen = () => {
           {currentStep === 1 && event && ticketType && (
             <>
               <Text className="text-white text-2xl font-bold mb-8 text-center">Récapitulatif</Text>
-              
+
               <View className="bg-white/10 rounded-2xl p-6 mb-8">
                 <Text className="text-white font-bold text-xl mb-4">Événement</Text>
                 <View className="flex-row items-center mb-6">
@@ -298,38 +361,35 @@ const ReservationScreen = () => {
           {currentStep === 2 && (
             <>
               <Text className="text-white text-2xl font-bold mb-8 text-center">Méthode de paiement</Text>
-              
+
               <View className="mb-8">
                 {paymentMethodsData.map((method) => (
                   <TouchableOpacity
                     key={method.id}
-                    className={`p-5 rounded-2xl mb-4 flex-row items-center ${
-                      paymentMethod === method.id 
-                        ? 'bg-teal-400 border-2 border-teal-400' 
+                    className={`p-5 rounded-2xl mb-4 flex-row items-center ${paymentMethod === method.id
+                        ? 'bg-teal-400 border-2 border-teal-400'
                         : 'bg-white/10 border border-white/10'
-                    }`}
+                      }`}
                     onPress={() => setPaymentMethod(method.id as PaymentMethod)}
                   >
-                    <Image 
-                      source={method.image} 
-                      className="w-10 h-10" 
+                    <Image
+                      source={method.image}
+                      className="w-10 h-10"
                     />
                     <View className="ml-4 flex-1">
                       <Text
-                        className={`font-bold text-lg ${
-                          paymentMethod === method.id 
-                            ? 'text-gray-900' 
+                        className={`font-bold text-lg ${paymentMethod === method.id
+                            ? 'text-gray-900'
                             : 'text-white'
-                        }`}
+                          }`}
                       >
                         {method.name}
                       </Text>
                       <Text
-                        className={`text-sm ${
-                          paymentMethod === method.id 
-                            ? 'text-gray-700' 
+                        className={`text-sm ${paymentMethod === method.id
+                            ? 'text-gray-700'
                             : 'text-gray-400'
-                        }`}
+                          }`}
                       >
                         {method.requirements}
                       </Text>
@@ -337,12 +397,84 @@ const ReservationScreen = () => {
                   </TouchableOpacity>
                 ))}
               </View>
-              
+            </>
+          )}
+
+          {currentStep === 3 && (
+            <>
+              <Text className="text-white text-2xl font-bold mb-8 text-center">Informations de paiement</Text>
+
+              <View className="bg-white/10 rounded-2xl p-6 mb-8">
+                <Text className="text-white font-bold text-xl mb-4">Instructions</Text>
+                <Text className="text-gray-400 text-base mb-4">
+                  Veuillez effectuer un transfert de <Text className="text-teal-400 font-bold">{totalPrice.toLocaleString()} MRO</Text> vers le numéro suivant :
+                </Text>
+
+                <View className="bg-teal-400/20 rounded-xl p-4 mb-6">
+                  <Text className="text-teal-400 text-2xl font-bold text-center">
+                    {receiverNumber}
+                  </Text>
+                </View>
+
+                <Text className="text-gray-400 text-base mb-2">
+                  Méthode: <Text className="text-white font-medium">{paymentMethod.toUpperCase()}</Text>
+                </Text>
+                <Text className="text-gray-400 text-base">
+                  Après le transfert, veuillez remplir les informations ci-dessous et téléverser une capture d'écran de la transaction.
+                </Text>
+              </View>
+
+              <View className="bg-white/10 rounded-2xl p-6 mb-8">
+                <Text className="text-white font-bold text-xl mb-4">Vos informations</Text>
+
+                <View className="mb-4">
+                  <Text className="text-gray-400 text-base mb-2">Votre numéro</Text>
+                  <TextInput
+                    className="bg-white/5 border border-white/10 rounded-xl p-4 text-white text-base"
+                    placeholder="Entrez votre numéro"
+                    placeholderTextColor="#9CA3AF"
+                    value={senderNumber}
+                    onChangeText={setSenderNumber}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+
+                <View className="mb-4">
+                  <Text className="text-gray-400 text-base mb-2">ID de transaction</Text>
+                  <TextInput
+                    className="bg-white/5 border border-white/10 rounded-xl p-4 text-white text-base"
+                    placeholder="Entrez l'ID de transaction"
+                    placeholderTextColor="#9CA3AF"
+                    value={transactionID}
+                    onChangeText={setTransactionID}
+                  />
+                </View>
+
+                <View className="mb-4">
+                  <Text className="text-gray-400 text-base mb-2">Preuve de paiement</Text>
+                  <TouchableOpacity
+                    className="bg-white/5 border border-white/10 rounded-xl p-4 items-center"
+                    onPress={pickImage}
+                  >
+                    <Ionicons name="camera-outline" size={32} color="#68f2f4" />
+                    <Text className="text-white text-base mt-2">
+                      {paymentProof ? 'Image sélectionnée' : 'Téléverser une capture'}
+                    </Text>
+                  </TouchableOpacity>
+                  {paymentProof && (
+                    <Image
+                      source={{ uri: paymentProof }}
+                      className="w-full h-40 rounded-xl mt-4"
+                      resizeMode="contain"
+                    />
+                  )}
+                </View>
+              </View>
+
               <View className="flex-row items-start mb-8">
-                <TouchableOpacity 
-                  className={`rounded-xl w-7 h-7 items-center justify-center mr-4 mt-1 ${
-                    acceptedTerms ? 'bg-teal-400' : 'bg-white/10'
-                  }`}
+                <TouchableOpacity
+                  className={`rounded-xl w-7 h-7 items-center justify-center mr-4 mt-1 ${acceptedTerms ? 'bg-teal-400' : 'bg-white/10'
+                    }`}
                   onPress={() => setAcceptedTerms(!acceptedTerms)}
                 >
                   {acceptedTerms && (
@@ -366,11 +498,10 @@ const ReservationScreen = () => {
               <Text className="text-white font-bold text-base">Précédent</Text>
             </TouchableOpacity>
           )}
-          
+
           <TouchableOpacity
-            className={`py-5 rounded-xl items-center ${
-              currentStep === 1 ? 'flex-1' : 'flex-1 ml-3'
-            } ${isProcessing ? 'bg-gray-500' : 'bg-[#ec673b]'}`}
+            className={`py-5 rounded-xl items-center ${currentStep === 1 ? 'flex-1' : 'flex-1 ml-3'
+              } ${isProcessing ? 'bg-gray-500' : 'bg-[#ec673b]'}`}
             onPress={nextStep}
             disabled={isProcessing}
           >
@@ -378,7 +509,7 @@ const ReservationScreen = () => {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text className="text-white font-bold text-base">
-                {currentStep === 2 ? 'Confirmer le paiement' : 'Continuer'}
+                {currentStep === 3 ? 'Confirmer le paiement' : 'Continuer'}
               </Text>
             )}
           </TouchableOpacity>
