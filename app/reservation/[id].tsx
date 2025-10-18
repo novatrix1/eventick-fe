@@ -26,11 +26,11 @@ interface TicketType {
   description: string;
 }
 
-type PaymentMethod = 'bankily' | 'masrvi' | 'sedad' | 'bimbank';
+type PaymentMethod = 'Bankily' | 'Masrvi' | 'Sedad' | 'Bimbank';
 
 const paymentMethodsData = [
   {
-    id: 'bankily',
+    id: 'Bankily',
     name: 'Bankily',
     icon: 'phone-portrait-outline',
     requirements: "Paiement via l'application Bankily",
@@ -38,7 +38,7 @@ const paymentMethodsData = [
     receiverNumber: '34326830'
   },
   {
-    id: 'masrvi',
+    id: 'Masrvi',
     name: 'Masrvi',
     icon: 'phone-portrait-outline',
     requirements: "Paiement via l'application Masrvi",
@@ -46,7 +46,7 @@ const paymentMethodsData = [
     receiverNumber: '45454545'
   },
   {
-    id: 'bimbank',
+    id: 'Bimbank',
     name: 'BimBank',
     icon: 'phone-portrait-outline',
     requirements: "Paiement via l'application BimBank",
@@ -192,22 +192,24 @@ const ReservationScreen = () => {
         return;
       }
 
-      // 🔹 On prépare le FormData comme dans ton code 2
       const formData = new FormData();
       formData.append('paymentType', paymentMethod);
       formData.append('amount', totalPrice.toString());
+      formData.append('receiver', "68a1b91c4d270dac3df1a92e");
       formData.append('receiverNumber', receiverNumber);
       formData.append('senderNumber', senderNumber);
       formData.append('event', eventId);
       formData.append('ticket', ticketTypeId);
       formData.append('transactionID', transactionID);
 
-      // 🔹 Ajout du fichier image (preuve de paiement)
+
       formData.append('paymentProof', {
         uri: paymentProof,
         name: 'proof.jpg',
         type: 'image/jpeg',
       } as any);
+
+      console.log("les donnée du data sont : ", formData);
 
       const response = await axios.post(`${API_URL}/api/payments/create`, formData, {
         headers: {
