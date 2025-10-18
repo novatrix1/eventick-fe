@@ -35,7 +35,7 @@ const paymentMethodsData = [
     icon: 'phone-portrait-outline',
     requirements: "Paiement via l'application Bankily",
     image: require('@/assets/payment/bankily.png'),
-    receiverNumber: '34326830' 
+    receiverNumber: '34326830'
   },
   {
     id: 'masrvi',
@@ -43,7 +43,7 @@ const paymentMethodsData = [
     icon: 'phone-portrait-outline',
     requirements: "Paiement via l'application Masrvi",
     image: require('@/assets/payment/masrvi.png'),
-    receiverNumber: '45454545' 
+    receiverNumber: '45454545'
   },
   {
     id: 'bimbank',
@@ -51,7 +51,7 @@ const paymentMethodsData = [
     icon: 'phone-portrait-outline',
     requirements: "Paiement via l'application BimBank",
     image: require('@/assets/payment/bimbank.png'),
-    receiverNumber: '56565656' 
+    receiverNumber: '56565656'
   }
 ];
 
@@ -192,23 +192,28 @@ const ReservationScreen = () => {
         return;
       }
 
-      const paymentData = {
-        paymentType: paymentMethod,
-        amount: totalPrice,
-        receiver: null,
-        receiverNumber: receiverNumber,
-        senderNumber: senderNumber,
-        event: eventId,
-        ticket: ticketTypeId,
-        paymentProof: paymentProof,
-        transactionID: transactionID,
-      };
+      // 🔹 On prépare le FormData comme dans ton code 2
+      const formData = new FormData();
+      formData.append('paymentType', paymentMethod);
+      formData.append('amount', totalPrice.toString());
+      formData.append('receiverNumber', receiverNumber);
+      formData.append('senderNumber', senderNumber);
+      formData.append('event', eventId);
+      formData.append('ticket', ticketTypeId);
+      formData.append('transactionID', transactionID);
 
-      const response = await axios.post(`${API_URL}/api/payments/create`, paymentData, {
+      // 🔹 Ajout du fichier image (preuve de paiement)
+      formData.append('paymentProof', {
+        uri: paymentProof,
+        name: 'proof.jpg',
+        type: 'image/jpeg',
+      } as any);
+
+      const response = await axios.post(`${API_URL}/api/payments/create`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
       if (response.data.success) {
@@ -367,8 +372,8 @@ const ReservationScreen = () => {
                   <TouchableOpacity
                     key={method.id}
                     className={`p-5 rounded-2xl mb-4 flex-row items-center ${paymentMethod === method.id
-                        ? 'bg-teal-400 border-2 border-teal-400'
-                        : 'bg-white/10 border border-white/10'
+                      ? 'bg-teal-400 border-2 border-teal-400'
+                      : 'bg-white/10 border border-white/10'
                       }`}
                     onPress={() => setPaymentMethod(method.id as PaymentMethod)}
                   >
@@ -379,16 +384,16 @@ const ReservationScreen = () => {
                     <View className="ml-4 flex-1">
                       <Text
                         className={`font-bold text-lg ${paymentMethod === method.id
-                            ? 'text-gray-900'
-                            : 'text-white'
+                          ? 'text-gray-900'
+                          : 'text-white'
                           }`}
                       >
                         {method.name}
                       </Text>
                       <Text
                         className={`text-sm ${paymentMethod === method.id
-                            ? 'text-gray-700'
-                            : 'text-gray-400'
+                          ? 'text-gray-700'
+                          : 'text-gray-400'
                           }`}
                       >
                         {method.requirements}
