@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Event } from '../types';
-import { getMinPrice } from '../utils/priceFormatter';
+//import { getMinPrice } from '../utils/priceFormatter';
 
 interface EventCardProps {
   event: Event;
@@ -17,7 +17,9 @@ const EventCard: React.FC<EventCardProps> = ({
   primaryColor = '#ec673b',
   variant = 'vertical'
 }) => {
-  const minPrice = getMinPrice(event.ticket);
+  
+  //const minPrice = getMinPrice(event.ticket);
+  console.log("Le getMinPrice est  : ", event.ticket)
   const eventId = (event as any)._id ?? (event as any).id; // compatibilité API
 
   if (variant === 'horizontal') {
@@ -48,7 +50,8 @@ const EventCard: React.FC<EventCardProps> = ({
 
           <View className="flex-row items-center mt-1">
             <Text className="font-bold text-sm" style={{ color: primaryColor }}>
-              {minPrice}
+              {event.price}
+              
             </Text>
           </View>
           
@@ -84,7 +87,7 @@ const EventCard: React.FC<EventCardProps> = ({
             {event.title}
           </Text>
           <Text className="text-gray-400 text-xs">{event.date}</Text>
-          <Text className="text-teal-400 text-xs font-bold mt-1">{minPrice}</Text>
+          <Text className="text-teal-400 text-xs font-bold mt-1">{event.price}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -147,7 +150,7 @@ const EventCard: React.FC<EventCardProps> = ({
             </View>
           )}
 
-          <Text className="text-white font-semibold text-lg">{minPrice}</Text>
+          <Text className="text-white font-semibold text-lg">{event.price}</Text>
         </View>
       </View>
     </TouchableOpacity>

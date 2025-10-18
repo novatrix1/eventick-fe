@@ -1,0 +1,11 @@
+[
+    {
+        "_id": "68ab89918a53e215489d2f0d",
+        "available": true,
+        "availableTickets": 48,
+        "description": "Accès standard à l'événement",
+        "price": 2000,
+        "totalTickets": 50,
+        "type": "Standard"
+    }
+]

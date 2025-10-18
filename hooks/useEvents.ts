@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiEvent, Event, Category } from '../types';
 import { transformApiEventToEvent } from '../utils/eventTransformer';
 
+
 const API_URL = "https://eventick.onrender.com";
 
 export const useEvents = () => {
@@ -34,6 +35,10 @@ export const useEvents = () => {
       const apiEvents: ApiEvent[] = response.data;
       const transformedEvents: Event[] = apiEvents.map(transformApiEventToEvent);
 
+      //console.log("Voici les données recupérés : ", transformedEvents);
+
+
+
       setEvents(transformedEvents);
 
       // Grouper par catégorie
@@ -45,6 +50,7 @@ export const useEvents = () => {
             .slice(0, 3);
         }
       });
+      //console.log("Voici les données par categorie : ", eventsByCategory);
       setCategoryEvents(eventsByCategory);
 
       setError(null);

@@ -46,6 +46,8 @@ const HomeScreen = () => {
 
   const { events, isLoading, refreshing, onRefresh } = useEvents();
   const { isLocating, userCity, nearbyEvents, getUserLocation } = useLocation(events);
+  //console.log("Voici les données recupéré avec useEvent : ", getUserLocation);
+  //console.log("Voici les données recupéré avec useEvent : ", events);
 
   const getCategoryEvents = () => {
     if (selectedCategory === 'all') return events;
@@ -57,6 +59,8 @@ const HomeScreen = () => {
       setPopularEvents(events.slice(0, 3));
     }
   }, [events]);
+
+  console.log("Les evenement populaire sont : ", popularEvents)
 
   useEffect(() => {
     const categoryEvents = getCategoryEvents();

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, Linking, Share, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Image, TouchableOpacity, Linking, Share, StyleSheet, ActivityIndicator, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
+import { Dimensions } from 'react-native';
 
 const API_URL = "https://eventick.onrender.com";
 
@@ -77,7 +78,7 @@ const EventDetailScreen = () => {
       setIsLoading(true);
       const response = await axios.get(`${API_URL}/api/events/${id}`);
       setEvent(response.data);
-      
+
       if (response.data.ticket && response.data.ticket.length > 0) {
         const availableTicket = response.data.ticket.find((t: Ticket) => t.available);
         if (availableTicket) {
@@ -93,7 +94,7 @@ const EventDetailScreen = () => {
 
   const handleShare = async () => {
     if (!event) return;
-    
+
     try {
       await Share.share({
         message: `Rejoignez-moi au ${event.title} le ${formatDate(event.date)} !`,
@@ -106,10 +107,10 @@ const EventDetailScreen = () => {
 
   const handleReservation = () => {
     if (!event || !selectedTicket) return;
-    
+
     const selectedTicketData = event.ticket.find(t => t._id === selectedTicket);
     if (!selectedTicketData) return;
-    
+
     router.push({
       pathname: `/reservation/${event._id}`,
       params: {
@@ -136,7 +137,7 @@ const EventDetailScreen = () => {
 
   const formatTime = (timeString: string) => {
     if (!timeString) return '';
-    
+
     if (timeString.includes('T')) {
       const date = new Date(timeString);
       return date.toLocaleTimeString('fr-FR', {
@@ -144,7 +145,7 @@ const EventDetailScreen = () => {
         minute: '2-digit'
       });
     }
-    
+
     return timeString;
   };
 
@@ -153,6 +154,8 @@ const EventDetailScreen = () => {
       fetchEventDetails();
     }
   }, [id]);
+
+  const [isImageModalVisible, setImageModalVisible] = useState(false);
 
   if (isLoading) {
     return (
@@ -190,16 +193,19 @@ const EventDetailScreen = () => {
         <StatusBar style="light" />
         <View className="h-80 relative">
           {event.image ? (
-            <Image
-              source={{ uri: event.image }}
-              className="w-full h-full"
-              resizeMode="cover"
-            />
+            <TouchableOpacity onPress={() => setImageModalVisible(true)} activeOpacity={0.9}>
+              <Image
+                source={{ uri: event.image }}
+                className="w-full h-full"
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
           ) : (
             <View className="w-full h-full bg-teal-400/20 items-center justify-center">
               <Ionicons name="image-outline" size={50} color="#68f2f4" />
             </View>
           )}
+
           <LinearGradient
             colors={['rgba(0,0,0,0.9)', 'transparent']}
             className="absolute top-0 left-0 right-0"
@@ -217,6 +223,22 @@ const EventDetailScreen = () => {
           >
             <Ionicons name="share-social" size={24} color="white" />
           </TouchableOpacity>
+
+          <Modal visible={isImageModalVisible} transparent={true} animationType="fade">
+            <View className="flex-1 bg-black items-center justify-center">
+              <TouchableOpacity
+                className="absolute top-12 right-6 bg-black/50 p-3 rounded-full z-50"
+                onPress={() => setImageModalVisible(false)}
+              >
+                <Ionicons name="close" size={30} color="white" />
+              </TouchableOpacity>
+              <Image
+                source={{ uri: event.image }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="contain"
+              />
+            </View>
+          </Modal>
         </View>
 
         <TouchableOpacity
@@ -256,8 +278,8 @@ const EventDetailScreen = () => {
             </View>
             <View className="bg-red-600 py-1 px-4 rounded-full shadow">
               <Text className="text-white font-extrabold text-lg">
-                {event.ticket && event.ticket.length > 0 
-                  ? `${Math.min(...event.ticket.map(t => t.price))} MRO` 
+                {event.ticket && event.ticket.length > 0
+                  ? `${Math.min(...event.ticket.map(t => t.price))} MRO`
                   : 'Gratuit'}
               </Text>
             </View>
@@ -333,23 +355,23 @@ const EventDetailScreen = () => {
                   disabled={!ticket.available}
                 >
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={isSelected ? styles.ticketNameSelected : 
+                    <Text style={isSelected ? styles.ticketNameSelected :
                       ticket.available ? styles.ticketNameUnselected : styles.ticketNameUnavailable}>
                       {ticket.type}
                     </Text>
-                    <Text style={isSelected ? styles.ticketPriceSelected : 
+                    <Text style={isSelected ? styles.ticketPriceSelected :
                       ticket.available ? styles.ticketPriceUnselected : styles.ticketPriceUnavailable}>
                       {ticket.price > 0 ? `${ticket.price} MRO` : 'Gratuit'}
                     </Text>
                   </View>
 
-                  <Text style={isSelected ? styles.ticketDescSelected : 
+                  <Text style={isSelected ? styles.ticketDescSelected :
                     ticket.available ? styles.ticketDescUnselected : styles.ticketDescUnavailable}>
                     {ticket.description}
                   </Text>
 
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                    <Text style={isSelected ? styles.ticketAvailabilitySelected : 
+                    <Text style={isSelected ? styles.ticketAvailabilitySelected :
                       ticket.available ? styles.ticketAvailabilityUnselected : styles.ticketAvailabilityUnavailable}>
                       {ticket.availableTickets} / {ticket.totalTickets} disponibles
                     </Text>
