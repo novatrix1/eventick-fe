@@ -1,29 +1,31 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  Image, 
-  TouchableOpacity, 
-  TextInput, 
-  Alert, 
-  SafeAreaView, 
-  ScrollView, 
+import BackgroundWrapper from "@/components/BackgroundWrapper";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios, { AxiosError } from "axios";
+import * as ImagePicker from "expo-image-picker";
+import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
   ActivityIndicator,
-  Dimensions 
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import BackgroundWrapper from '@/components/BackgroundWrapper';
-import { StatusBar } from 'expo-status-bar';
-import { router, useLocalSearchParams } from 'expo-router';
-import axios, { AxiosError } from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ImagePicker from 'expo-image-picker';
-import { z } from 'zod';
+  Alert,
+  Dimensions,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { z } from "zod";
 
 const API_URL = "https://eventick.onrender.com";
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const phoneNumberSchema = z.string().regex(/^[0-9]+$/, "Le numéro doit contenir uniquement des chiffres");
+const phoneNumberSchema = z
+  .string()
+  .regex(/^[0-9]+$/, "Le numéro doit contenir uniquement des chiffres");
 const transactionIdSchema = z.string().min(1, "L'ID de transaction est requis");
 
 interface Event {
@@ -59,7 +61,7 @@ interface BookingResponse {
   bookingRef: string;
   totalPrice: number;
   quantity: number;
-  tickets: Ticket[] | Ticket; 
+  tickets: Ticket[] | Ticket;
 }
 
 interface PaymentMethodData {
@@ -71,7 +73,7 @@ interface PaymentMethodData {
   receiverNumber: string;
 }
 
-type PaymentMethod = 'Bankily' | 'Masrvi' | 'Sedad' | 'Bimbank';
+type PaymentMethod = "Bankily" | "Masrvi" | "Sedad" | "Bimbank";
 
 interface SearchParams {
   id?: string;
@@ -84,29 +86,29 @@ interface SearchParams {
 
 const paymentMethodsData: PaymentMethodData[] = [
   {
-    id: 'Bankily',
-    name: 'Bankily',
-    icon: 'phone-portrait-outline',
+    id: "Bankily",
+    name: "Bankily",
+    icon: "phone-portrait-outline",
     requirements: "Paiement via l'application Bankily",
-    image: require('@/assets/payment/bankily.png'),
-    receiverNumber: '34326830'
+    image: require("@/assets/payment/bankily.png"),
+    receiverNumber: "34326830",
   },
   {
-    id: 'Masrvi',
-    name: 'Masrvi',
-    icon: 'phone-portrait-outline',
+    id: "Masrvi",
+    name: "Masrvi",
+    icon: "phone-portrait-outline",
     requirements: "Paiement via l'application Masrvi",
-    image: require('@/assets/payment/masrvi.png'),
-    receiverNumber: '45454545'
+    image: require("@/assets/payment/masrvi.png"),
+    receiverNumber: "45454545",
   },
   {
-    id: 'Bimbank',
-    name: 'BimBank',
-    icon: 'phone-portrait-outline',
+    id: "Bimbank",
+    name: "BimBank",
+    icon: "phone-portrait-outline",
     requirements: "Paiement via l'application BimBank",
-    image: require('@/assets/payment/bimbank.png'),
-    receiverNumber: '56565656'
-  }
+    image: require("@/assets/payment/bimbank.png"),
+    receiverNumber: "56565656",
+  },
 ];
 
 const useEventDetails = (eventId?: string, ticketTypeId?: string) => {
@@ -125,17 +127,19 @@ const useEventDetails = (eventId?: string, ticketTypeId?: string) => {
     try {
       setIsLoading(true);
       setError(null);
-      
-      const token = await AsyncStorage.getItem('token');
+
+      const token = await AsyncStorage.getItem("token");
       const response = await axios.get(`${API_URL}/api/events/${eventId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
-        timeout: 10000
+        timeout: 10000,
       });
 
       setEvent(response.data);
 
       if (response.data.ticket && response.data.ticket.length > 0) {
-        const selectedTicket = response.data.ticket.find((t: TicketType) => t._id === ticketTypeId);
+        const selectedTicket = response.data.ticket.find(
+          (t: TicketType) => t._id === ticketTypeId
+        );
         if (selectedTicket) {
           setTicketType(selectedTicket);
         } else {
@@ -143,11 +147,12 @@ const useEventDetails = (eventId?: string, ticketTypeId?: string) => {
         }
       }
     } catch (err) {
-      const errorMessage = err instanceof AxiosError 
-        ? err.response?.data?.message || err.message 
-        : 'Erreur réseau';
+      const errorMessage =
+        err instanceof AxiosError
+          ? err.response?.data?.message || err.message
+          : "Erreur réseau";
       setError(errorMessage);
-      console.error('Error fetching event details:', err);
+      console.error("Error fetching event details:", err);
     } finally {
       setIsLoading(false);
     }
@@ -162,31 +167,39 @@ const useEventDetails = (eventId?: string, ticketTypeId?: string) => {
 
 const ReservationScreen = () => {
   const params = useLocalSearchParams<SearchParams>();
-  
+
   const eventId = params.id;
   const ticketTypeId = params.ticketTypeId;
-  const quantity = parseInt(params.quantity || '1', 10);
-  const price = parseFloat(params.price || '0');
+  const quantity = parseInt(params.quantity || "1", 10);
+  const price = parseFloat(params.price || "0");
 
   const [currentStep, setCurrentStep] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Bankily');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Bankily");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [confirmationNumber, setConfirmationNumber] = useState('');
-  const [senderNumber, setSenderNumber] = useState('');
-  const [transactionID, setTransactionID] = useState('');
+  const [confirmationNumber, setConfirmationNumber] = useState("");
+  const [senderNumber, setSenderNumber] = useState("");
+  const [transactionID, setTransactionID] = useState("");
   const [paymentProof, setPaymentProof] = useState<string | null>(null);
-  const [receiverNumber, setReceiverNumber] = useState('34326830');
+  const [receiverNumber, setReceiverNumber] = useState("34326830");
   const [bookingData, setBookingData] = useState<BookingResponse | null>(null);
-  const [formErrors, setFormErrors] = useState<{senderNumber?: string; transactionID?: string}>({});
+  const [formErrors, setFormErrors] = useState<{
+    senderNumber?: string;
+    transactionID?: string;
+  }>({});
 
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const { event, ticketType, isLoading, error } = useEventDetails(eventId, ticketTypeId);
+  const { event, ticketType, isLoading, error } = useEventDetails(
+    eventId,
+    ticketTypeId
+  );
 
   useEffect(() => {
-    const selectedMethod = paymentMethodsData.find(method => method.id === paymentMethod);
+    const selectedMethod = paymentMethodsData.find(
+      (method) => method.id === paymentMethod
+    );
     if (selectedMethod) {
       setReceiverNumber(selectedMethod.receiverNumber);
     }
@@ -194,12 +207,14 @@ const ReservationScreen = () => {
 
   useEffect(() => {
     if (error && !isLoading) {
-      Alert.alert('Erreur', error);
+      Alert.alert("Erreur", error);
     }
   }, [error, isLoading]);
 
   // Calculations
-  const totalPrice = ticketType ? (ticketType.price * quantity) : price * quantity;
+  const totalPrice = ticketType
+    ? ticketType.price * quantity
+    : price * quantity;
 
   // Navigation functions
   const nextStep = () => {
@@ -224,12 +239,13 @@ const ReservationScreen = () => {
 
   const pickImage = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (status !== 'granted') {
+      if (status !== "granted") {
         Alert.alert(
-          'Permission requise', 
-          'Vous devez autoriser l\'accès à la galerie pour téléverser une image.'
+          "Permission requise",
+          "Vous devez autoriser l'accès à la galerie pour téléverser une image."
         );
         return;
       }
@@ -246,33 +262,39 @@ const ReservationScreen = () => {
         setPaymentProof(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Erreur', 'Impossible de sélectionner l\'image');
+      console.error("Error picking image:", error);
+      Alert.alert("Erreur", "Impossible de sélectionner l'image");
     }
   };
 
   const validateStep3 = (): boolean => {
-    const errors: {senderNumber?: string; transactionID?: string} = {};
+    const errors: { senderNumber?: string; transactionID?: string } = {};
 
     try {
       phoneNumberSchema.parse(senderNumber);
     } catch (e) {
-      errors.senderNumber = e instanceof z.ZodError ? e.errors[0].message : "Numéro invalide";
+      errors.senderNumber =
+        e instanceof z.ZodError ? e.errors[0].message : "Numéro invalide";
     }
 
     try {
       transactionIdSchema.parse(transactionID);
     } catch (e) {
-      errors.transactionID = e instanceof z.ZodError ? e.errors[0].message : "ID de transaction requis";
+      errors.transactionID =
+        e instanceof z.ZodError
+          ? e.errors[0].message
+          : "ID de transaction requis";
     }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const getTicketIdsFromBooking = (bookingResult: BookingResponse): string[] => {
+  const getTicketIdsFromBooking = (
+    bookingResult: BookingResponse
+  ): string[] => {
     console.log("Structure complète du booking:", bookingResult);
-    
+
     if (!bookingResult.tickets) {
       console.error("Aucun ticket trouvé dans la réponse de booking");
       return [];
@@ -280,13 +302,14 @@ const ReservationScreen = () => {
 
     if (Array.isArray(bookingResult.tickets)) {
       console.log("Tickets sous forme de tableau:", bookingResult.tickets);
-      return bookingResult.tickets.map(ticket => ticket.id);
-    } 
-    else if (typeof bookingResult.tickets === 'object' && bookingResult.tickets.id) {
+      return bookingResult.tickets.map((ticket) => ticket.id);
+    } else if (
+      typeof bookingResult.tickets === "object" &&
+      bookingResult.tickets.id
+    ) {
       console.log("Ticket unique:", bookingResult.tickets);
       return [bookingResult.tickets.id];
-    }
-    else {
+    } else {
       console.error("Structure de tickets inattendue:", bookingResult.tickets);
       return [];
     }
@@ -294,14 +317,17 @@ const ReservationScreen = () => {
 
   const createBooking = async (): Promise<BookingResponse | null> => {
     if (!eventId || !ticketTypeId) {
-      Alert.alert('Erreur', 'Informations de réservation incomplètes');
+      Alert.alert("Erreur", "Informations de réservation incomplètes");
       return null;
     }
 
     try {
-      const token = await AsyncStorage.getItem('token');
+      const token = await AsyncStorage.getItem("token");
       if (!token) {
-        Alert.alert('Erreur', 'Vous devez être connecté pour effectuer une réservation');
+        Alert.alert(
+          "Erreur",
+          "Vous devez être connecté pour effectuer une réservation"
+        );
         return null;
       }
 
@@ -315,33 +341,34 @@ const ReservationScreen = () => {
       console.log("Données envoyées pour la réservation:", bookingRequestData);
 
       const response = await axios.post<BookingResponse>(
-        `${API_URL}/api/tickets/book`, 
-        bookingRequestData, 
+        `${API_URL}/api/tickets/book`,
+        bookingRequestData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json",
           },
-          timeout: 15000
+          timeout: 15000,
         }
       );
 
       console.log("Réponse de réservation reçue:", response.data);
       return response.data;
     } catch (error: any) {
-      console.error('Erreur lors de la réservation:', error);
-      const errorMessage = error instanceof AxiosError 
-        ? error.response?.data?.message || error.message 
-        : 'Erreur réseau';
-      
-      Alert.alert('Erreur de réservation', errorMessage);
+      console.error("Erreur lors de la réservation:", error);
+      const errorMessage =
+        error instanceof AxiosError
+          ? error.response?.data?.message || error.message
+          : "Erreur réseau";
+
+      Alert.alert("Erreur de réservation", errorMessage);
       return null;
     }
   };
 
   const handlePayment = async () => {
     if (!acceptedTerms) {
-      Alert.alert('Veuillez accepter les conditions générales');
+      Alert.alert("Veuillez accepter les conditions générales");
       return;
     }
 
@@ -350,7 +377,7 @@ const ReservationScreen = () => {
     }
 
     if (!paymentProof) {
-      Alert.alert('Veuillez téléverser une preuve de paiement');
+      Alert.alert("Veuillez téléverser une preuve de paiement");
       return;
     }
 
@@ -362,76 +389,84 @@ const ReservationScreen = () => {
         setIsProcessing(false);
         return;
       }
-      
+
       setBookingData(bookingResult);
-      
+
       const ticketIdsFromBooking = getTicketIdsFromBooking(bookingResult);
-      
+
       if (ticketIdsFromBooking.length === 0) {
-        Alert.alert('Aucun ticket créé dans la réservation');
+        Alert.alert("Aucun ticket créé dans la réservation");
         setIsProcessing(false);
         return;
       }
 
       console.log("IDs de tickets à envoyer:", ticketIdsFromBooking);
 
-      const token = await AsyncStorage.getItem('token');
+      const token = await AsyncStorage.getItem("token");
       if (!token) {
-        Alert.alert('Erreur', 'Session expirée');
+        Alert.alert("Erreur", "Session expirée");
         setIsProcessing(false);
         return;
       }
 
       const formData = new FormData();
-      formData.append('paymentType', paymentMethod);
-      formData.append('amount', totalPrice.toString());
-      formData.append('receiver', "68a26e2b73e6cc96dfcdf272");
-      formData.append('receiverNumber', receiverNumber);
-      formData.append('senderNumber', senderNumber);
-      formData.append('event', eventId!);
+      formData.append("paymentType", paymentMethod);
+      formData.append("amount", totalPrice.toString());
+      formData.append("receiver", "68a26e2b73e6cc96dfcdf272");
+      formData.append("receiverNumber", receiverNumber);
+      formData.append("senderNumber", senderNumber);
+      formData.append("event", eventId!);
 
-      ticketIdsFromBooking.forEach(ticketId => {
-        formData.append('ticket', ticketId);
-      });
+      const ticketsArray = Array.isArray(ticketIdsFromBooking)
+        ? ticketIdsFromBooking
+        : [ticketIdsFromBooking];
 
-      formData.append('transactionID', transactionID);
+      formData.append("ticket", JSON.stringify(ticketsArray));
+
+      formData.append("transactionID", transactionID);
 
       if (paymentProof) {
-        formData.append('paymentProof', {
+        formData.append("paymentProof", {
           uri: paymentProof,
-          name: 'payment_proof.jpg',
-          type: 'image/jpeg',
+          name: "payment_proof.jpg",
+          type: "image/jpeg",
         } as any);
       }
 
-
-      const response = await axios.post(`${API_URL}/api/payments/create`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 30000,
-      });
+      console.log(formData);
+      const response = await axios.post(
+        `${API_URL}/api/payments/create`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+          timeout: 30000,
+        }
+      );
 
       console.log("Réponse du paiement:", response.data);
 
       if (response.status === 201) {
-        setConfirmationNumber(response.data.payment?._id || `temp_${Date.now()}`);
+        setConfirmationNumber(
+          response.data.payment?._id || `temp_${Date.now()}`
+        );
         setIsProcessing(false);
         setIsPending(true);
       } else {
-        throw new Error(response.data.message || 'Erreur lors du paiement');
+        throw new Error(response.data.message || "Erreur lors du paiement");
       }
-
     } catch (error: any) {
-      console.error('Payment error détaillé:', error);
-      console.error('Error response:', error.response?.data);
-      
-      const errorMessage = error instanceof AxiosError 
-        ? error.response?.data?.message || error.message 
-        : 'Erreur réseau';
-      
-      Alert.alert('Erreur de paiement', errorMessage);
+      console.error("Payment error détaillé:", error);
+      console.error("Error response:", error.response?.data);
+
+      const errorMessage =
+        error instanceof AxiosError
+          ? error.response?.data?.message || error.message
+          : "Erreur réseau";
+
+      Alert.alert("Erreur de paiement", errorMessage);
       setIsProcessing(false);
     }
   };
@@ -469,7 +504,7 @@ const ReservationScreen = () => {
   if (isPending) {
     return (
       <BackgroundWrapper>
-        <SafeAreaView className="flex-1" edges={['top']}>
+        <SafeAreaView className="flex-1" edges={["top"]}>
           <StatusBar style="light" />
           <View className="flex-1 items-center justify-center px-8">
             <View className="items-center">
@@ -498,14 +533,17 @@ const ReservationScreen = () => {
               </View>
 
               <Text className="text-gray-400 text-center text-base mt-6">
-                Merci pour votre patience. Votre réservation sera validée après vérification de votre paiement.
+                Merci pour votre patience. Votre réservation sera validée après
+                vérification de votre paiement.
               </Text>
 
               <TouchableOpacity
                 className="mt-8 bg-[#ec673b] py-4 px-8 rounded-full"
-                onPress={() => router.replace('/(tabs-client)/ticket')}
+                onPress={() => router.replace("/(tabs-client)/ticket")}
               >
-                <Text className="text-white font-bold text-lg">Voir mes billets</Text>
+                <Text className="text-white font-bold text-lg">
+                  Voir mes billets
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -521,7 +559,7 @@ const ReservationScreen = () => {
           <TouchableOpacity
             onPress={prevStep}
             disabled={currentStep === 1}
-            className={`p-3 rounded-full ${currentStep === 1 ? 'opacity-30' : 'bg-white/10'}`}
+            className={`p-3 rounded-full ${currentStep === 1 ? "opacity-30" : "bg-white/10"}`}
           >
             <Ionicons
               name="arrow-back"
@@ -539,8 +577,8 @@ const ReservationScreen = () => {
 
         <View className="px-6 mt-4">
           <View className="h-1 bg-white/10 rounded-full">
-            <View 
-              className="h-1 bg-teal-400 rounded-full" 
+            <View
+              className="h-1 bg-teal-400 rounded-full"
               style={{ width: `${(currentStep / 3) * 100}%` }}
             />
           </View>
@@ -555,10 +593,14 @@ const ReservationScreen = () => {
           {/* Step 1: Summary */}
           {currentStep === 1 && event && (
             <>
-              <Text className="text-white text-2xl font-bold mb-8 text-center">Récapitulatif</Text>
+              <Text className="text-white text-2xl font-bold mb-8 text-center">
+                Récapitulatif
+              </Text>
 
               <View className="bg-white/10 rounded-2xl p-6 mb-8">
-                <Text className="text-white font-bold text-xl mb-4">Événement</Text>
+                <Text className="text-white font-bold text-xl mb-4">
+                  Événement
+                </Text>
                 <View className="flex-row items-center mb-6">
                   {event.image ? (
                     <Image
@@ -568,21 +610,28 @@ const ReservationScreen = () => {
                     />
                   ) : (
                     <View className="w-20 h-20 rounded-xl bg-teal-400/20 items-center justify-center">
-                      <Ionicons name="image-outline" size={30} color="#68f2f4" />
+                      <Ionicons
+                        name="image-outline"
+                        size={30}
+                        color="#68f2f4"
+                      />
                     </View>
                   )}
                   <View className="ml-5 flex-1">
-                    <Text className="text-white font-bold text-lg" numberOfLines={2}>
+                    <Text
+                      className="text-white font-bold text-lg"
+                      numberOfLines={2}
+                    >
                       {event.title}
                     </Text>
                     <Text className="text-gray-400 text-base mt-2">
-                      {new Date(event.date).toLocaleDateString('fr-FR', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
+                      {new Date(event.date).toLocaleDateString("fr-FR", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
                       })}
                     </Text>
                     <Text className="text-gray-400 text-base">
@@ -593,25 +642,33 @@ const ReservationScreen = () => {
 
                 <View className="border-t border-white/10 pt-5">
                   <View className="flex-row justify-between mb-4 py-2 border-b border-white/10">
-                    <Text className="text-gray-400 text-base">Type de billet</Text>
+                    <Text className="text-gray-400 text-base">
+                      Type de billet
+                    </Text>
                     <Text className="text-white text-base font-medium">
-                      {ticketType?.type || 'Standard'}
+                      {ticketType?.type || "Standard"}
                     </Text>
                   </View>
                   <View className="flex-row justify-between mb-4 py-2 border-b border-white/10">
                     <Text className="text-gray-400 text-base">Quantité</Text>
-                    <Text className="text-white text-base font-medium">{quantity}</Text>
+                    <Text className="text-white text-base font-medium">
+                      {quantity}
+                    </Text>
                   </View>
                   <View className="flex-row justify-between mb-4 py-2 border-b border-white/10">
-                    <Text className="text-gray-400 text-base">Prix unitaire</Text>
+                    <Text className="text-gray-400 text-base">
+                      Prix unitaire
+                    </Text>
                     <Text className="text-white text-base font-medium">
-                      {(ticketType?.price || price).toLocaleString('fr-FR')} MRO
+                      {(ticketType?.price || price).toLocaleString("fr-FR")} MRO
                     </Text>
                   </View>
                   <View className="flex-row justify-between mt-5 pt-5 border-t border-white/20">
-                    <Text className="text-gray-400 font-bold text-lg">Total</Text>
+                    <Text className="text-gray-400 font-bold text-lg">
+                      Total
+                    </Text>
                     <Text className="text-teal-400 font-bold text-xl">
-                      {totalPrice.toLocaleString('fr-FR')} MRO
+                      {totalPrice.toLocaleString("fr-FR")} MRO
                     </Text>
                   </View>
                 </View>
@@ -631,8 +688,8 @@ const ReservationScreen = () => {
                     key={method.id}
                     className={`p-5 rounded-2xl mb-4 flex-row items-center ${
                       paymentMethod === method.id
-                        ? 'bg-teal-400 border-2 border-teal-400'
-                        : 'bg-white/10 border border-white/10'
+                        ? "bg-teal-400 border-2 border-teal-400"
+                        : "bg-white/10 border border-white/10"
                     }`}
                     onPress={() => setPaymentMethod(method.id)}
                   >
@@ -645,8 +702,8 @@ const ReservationScreen = () => {
                       <Text
                         className={`font-bold text-lg ${
                           paymentMethod === method.id
-                            ? 'text-gray-900'
-                            : 'text-white'
+                            ? "text-gray-900"
+                            : "text-white"
                         }`}
                       >
                         {method.name}
@@ -654,17 +711,23 @@ const ReservationScreen = () => {
                       <Text
                         className={`text-sm ${
                           paymentMethod === method.id
-                            ? 'text-gray-700'
-                            : 'text-gray-400'
+                            ? "text-gray-700"
+                            : "text-gray-400"
                         }`}
                       >
                         {method.requirements}
                       </Text>
                     </View>
                     <Ionicons
-                      name={paymentMethod === method.id ? "radio-button-on" : "radio-button-off"}
+                      name={
+                        paymentMethod === method.id
+                          ? "radio-button-on"
+                          : "radio-button-off"
+                      }
                       size={24}
-                      color={paymentMethod === method.id ? "#001215" : "#9CA3AF"}
+                      color={
+                        paymentMethod === method.id ? "#001215" : "#9CA3AF"
+                      }
                     />
                   </TouchableOpacity>
                 ))}
@@ -679,12 +742,14 @@ const ReservationScreen = () => {
               </Text>
 
               <View className="bg-white/10 rounded-2xl p-6 mb-8">
-                <Text className="text-white font-bold text-xl mb-4">Instructions</Text>
+                <Text className="text-white font-bold text-xl mb-4">
+                  Instructions
+                </Text>
                 <Text className="text-gray-400 text-base mb-4">
-                  Veuillez effectuer un transfert de{' '}
+                  Veuillez effectuer un transfert de{" "}
                   <Text className="text-teal-400 font-bold">
-                    {totalPrice.toLocaleString('fr-FR')} MRO
-                  </Text>{' '}
+                    {totalPrice.toLocaleString("fr-FR")} MRO
+                  </Text>{" "}
                   vers le numéro suivant :
                 </Text>
 
@@ -695,24 +760,32 @@ const ReservationScreen = () => {
                 </View>
 
                 <Text className="text-gray-400 text-base mb-2">
-                  Méthode:{' '}
+                  Méthode:{" "}
                   <Text className="text-white font-medium">
                     {paymentMethod.toUpperCase()}
                   </Text>
                 </Text>
                 <Text className="text-gray-400 text-base">
-                  Après le transfert, veuillez remplir les informations ci-dessous et téléverser une capture {"d'écran"} de la transaction.
+                  Après le transfert, veuillez remplir les informations
+                  ci-dessous et téléverser une capture {"d'écran"} de la
+                  transaction.
                 </Text>
               </View>
 
               <View className="bg-white/10 rounded-2xl p-6 mb-8">
-                <Text className="text-white font-bold text-xl mb-4">Vos informations</Text>
+                <Text className="text-white font-bold text-xl mb-4">
+                  Vos informations
+                </Text>
 
                 <View className="mb-4">
-                  <Text className="text-gray-400 text-base mb-2">Votre numéro</Text>
+                  <Text className="text-gray-400 text-base mb-2">
+                    Votre numéro
+                  </Text>
                   <TextInput
                     className={`bg-white/5 border rounded-xl p-4 text-white text-base ${
-                      formErrors.senderNumber ? 'border-red-500' : 'border-white/10'
+                      formErrors.senderNumber
+                        ? "border-red-500"
+                        : "border-white/10"
                     }`}
                     placeholder="Entrez votre numéro"
                     placeholderTextColor="#9CA3AF"
@@ -720,22 +793,31 @@ const ReservationScreen = () => {
                     onChangeText={(text) => {
                       setSenderNumber(text);
                       if (formErrors.senderNumber) {
-                        setFormErrors(prev => ({ ...prev, senderNumber: undefined }));
+                        setFormErrors((prev) => ({
+                          ...prev,
+                          senderNumber: undefined,
+                        }));
                       }
                     }}
                     keyboardType="phone-pad"
                     maxLength={15}
                   />
                   {formErrors.senderNumber && (
-                    <Text className="text-red-400 text-sm mt-1">{formErrors.senderNumber}</Text>
+                    <Text className="text-red-400 text-sm mt-1">
+                      {formErrors.senderNumber}
+                    </Text>
                   )}
                 </View>
 
                 <View className="mb-4">
-                  <Text className="text-gray-400 text-base mb-2">ID de transaction</Text>
+                  <Text className="text-gray-400 text-base mb-2">
+                    ID de transaction
+                  </Text>
                   <TextInput
                     className={`bg-white/5 border rounded-xl p-4 text-white text-base ${
-                      formErrors.transactionID ? 'border-red-500' : 'border-white/10'
+                      formErrors.transactionID
+                        ? "border-red-500"
+                        : "border-white/10"
                     }`}
                     placeholder="Entrez l'ID de transaction"
                     placeholderTextColor="#9CA3AF"
@@ -743,29 +825,42 @@ const ReservationScreen = () => {
                     onChangeText={(text) => {
                       setTransactionID(text);
                       if (formErrors.transactionID) {
-                        setFormErrors(prev => ({ ...prev, transactionID: undefined }));
+                        setFormErrors((prev) => ({
+                          ...prev,
+                          transactionID: undefined,
+                        }));
                       }
                     }}
                     maxLength={50}
                   />
                   {formErrors.transactionID && (
-                    <Text className="text-red-400 text-sm mt-1">{formErrors.transactionID}</Text>
+                    <Text className="text-red-400 text-sm mt-1">
+                      {formErrors.transactionID}
+                    </Text>
                   )}
                 </View>
 
                 <View className="mb-4">
-                  <Text className="text-gray-400 text-base mb-2">Preuve de paiement</Text>
+                  <Text className="text-gray-400 text-base mb-2">
+                    Preuve de paiement
+                  </Text>
                   <TouchableOpacity
                     className="bg-white/5 border border-white/10 rounded-xl p-4 items-center"
                     onPress={pickImage}
                   >
-                    <Ionicons 
-                      name={paymentProof ? "checkmark-circle" : "camera-outline"} 
-                      size={32} 
-                      color={paymentProof ? "#10b981" : "#68f2f4"} 
+                    <Ionicons
+                      name={
+                        paymentProof ? "checkmark-circle" : "camera-outline"
+                      }
+                      size={32}
+                      color={paymentProof ? "#10b981" : "#68f2f4"}
                     />
-                    <Text className={`text-base mt-2 ${paymentProof ? 'text-teal-400' : 'text-white'}`}>
-                      {paymentProof ? 'Image sélectionnée' : 'Téléverser une capture'}
+                    <Text
+                      className={`text-base mt-2 ${paymentProof ? "text-teal-400" : "text-white"}`}
+                    >
+                      {paymentProof
+                        ? "Image sélectionnée"
+                        : "Téléverser une capture"}
                     </Text>
                   </TouchableOpacity>
                   {paymentProof && (
@@ -781,7 +876,7 @@ const ReservationScreen = () => {
               <View className="flex-row items-start mb-8">
                 <TouchableOpacity
                   className={`rounded-xl w-7 h-7 items-center justify-center mr-4 mt-1 ${
-                    acceptedTerms ? 'bg-teal-400' : 'bg-white/10'
+                    acceptedTerms ? "bg-teal-400" : "bg-white/10"
                   }`}
                   onPress={() => setAcceptedTerms(!acceptedTerms)}
                 >
@@ -790,7 +885,9 @@ const ReservationScreen = () => {
                   )}
                 </TouchableOpacity>
                 <Text className="text-gray-400 flex-1 text-base">
-                 {" J'accepte"} les conditions générales de vente et confirme que {"j'ai"} pris connaissance de la politique d'annulation et de remboursement.
+                  {" J'accepte"} les conditions générales de vente et confirme
+                  que {"j'ai"} pris connaissance de la politique d'annulation et
+                  de remboursement.
                 </Text>
               </View>
             </>
@@ -810,8 +907,8 @@ const ReservationScreen = () => {
 
           <TouchableOpacity
             className={`py-5 rounded-xl items-center ${
-              currentStep === 1 ? 'flex-1' : 'flex-1 ml-3'
-            } ${isProcessing ? 'bg-gray-500' : 'bg-[#ec673b]'}`}
+              currentStep === 1 ? "flex-1" : "flex-1 ml-3"
+            } ${isProcessing ? "bg-gray-500" : "bg-[#ec673b]"}`}
             onPress={nextStep}
             disabled={isProcessing}
           >
@@ -819,7 +916,7 @@ const ReservationScreen = () => {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text className="text-white font-bold text-base">
-                {currentStep === 3 ? 'Confirmer le paiement' : 'Continuer'}
+                {currentStep === 3 ? "Confirmer le paiement" : "Continuer"}
               </Text>
             )}
           </TouchableOpacity>
