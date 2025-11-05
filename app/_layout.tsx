@@ -134,6 +134,24 @@ const RootLayout = () => {
                         headerShown: false,
                     }}
                 />
+                <Stack.Screen
+                    name='screens/forgot-password'
+                    options={{
+                        headerShown: false,
+                    }}
+                />
+                <Stack.Screen
+                    name='screens/reset-password'
+                    options={{
+                        headerShown: false,
+                    }}
+                />
+                <Stack.Screen
+                    name='screens/PaymentPendingScreen'
+                    options={{
+                        headerShown: false,
+                    }}
+                />
             </Stack>
     )
 }

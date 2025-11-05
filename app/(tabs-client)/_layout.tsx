@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { Platform, StyleSheet, View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 
@@ -20,6 +21,8 @@ const screens: {
 ];
 
 export default function TabsLayout() {
+  const { unreadCount } = useUnreadNotifications();
+
   return (
     <Tabs
       screenOptions={{
@@ -52,6 +55,18 @@ export default function TabsLayout() {
                   size={22}
                   color={color}
                 />
+                
+                {screen.name === 'notification' && unreadCount > 0 && (
+                  <View style={[
+                    styles.badge,
+                    unreadCount > 99 ? styles.badgeLarge : styles.badgeNormal
+                  ]}>
+                    <Text style={styles.badgeText}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+                
                 {focused && <View style={styles.activeIndicator} />}
               </View>
             ),
@@ -109,5 +124,32 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 2,
     backgroundColor: '#00f5ff',
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(0, 20, 24, 1)',
+  },
+  badgeNormal: {
+    minWidth: 18,
+    height: 18,
+  },
+  badgeLarge: {
+    minWidth: 24,
+    height: 18,
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 14,
   },
 });

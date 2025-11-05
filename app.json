@@ -56,7 +56,8 @@
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
           "recordAudioAndroid": true
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
@@ -64,8 +65,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "83f8d404-e3a5-48de-bf6d-6008018ced89"
+        "projectId": "df5f7862-5d9d-4016-860e-fc89b46af182"
       }
-    }
+    },
+    "owner": "arsprod2001"
   }
 }

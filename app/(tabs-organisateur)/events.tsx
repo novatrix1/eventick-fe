@@ -48,7 +48,6 @@ const OrganizerEvents = () => {
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
 
-  // Catégories pour les filtres
   const categories = [
     { id: 'all', name: 'Toutes catégories', icon: 'grid' },
     { id: 'Concert', name: 'Concert', icon: 'musical-notes' },

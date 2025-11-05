@@ -1,9 +1,8 @@
 import React from "react";
-import { View, Text, ScrollView, SafeAreaView } from "react-native";
+import { Text, ScrollView, SafeAreaView } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import BackgroundWrapper from "@/components/BackgroundWrapper";
 
-const primaryColor = "#ec673b";
 
 const termsText = `
 Bienvenue sur notre application de réservation de billets d'événements en Mauritanie.

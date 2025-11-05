@@ -12,7 +12,7 @@ const UserInfoSection: React.FC<UserInfoSectionProps> = ({ userInfo, organizerSt
   return (
     <View className="items-center mb-10">
       <Image
-        source={{ uri: userInfo.profileImage }}
+        source={{ uri: userInfo.profilePicture }}
         className="w-28 h-28 rounded-full border-4 border-[#ec673b]"
       />
 

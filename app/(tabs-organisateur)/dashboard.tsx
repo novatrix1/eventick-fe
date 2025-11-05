@@ -8,8 +8,6 @@ import * as Haptics from 'expo-haptics'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
-
-
 interface Event {
   id: string;
   title: string;
@@ -35,7 +33,6 @@ interface TicketType {
   sold: number;
 }
 
-type EventStatus = 'draft' | 'published' | 'completed';
 
 const Dashboard = () => {
   const router = useRouter()

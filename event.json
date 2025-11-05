@@ -1,11 +1,46 @@
 [
     {
-        "_id": "68ab89918a53e215489d2f0d",
-        "available": true,
-        "availableTickets": 48,
-        "description": "Accès standard à l'événement",
-        "price": 2000,
+        "_id": "68ab89918a53e215489d2f0c",
+        "title": "Cheikh Reflex Show",
+        "description": "hdbdbfbd",
+        "location": "Bwbwb",
+        "date": "2025-08-27T00:00:00.000Z",
+        "time": "17:51",
         "totalTickets": 50,
-        "type": "Standard"
+        "availableTickets": 46,
+        "image": null,
+        "category": "Concert",
+        "city": "Dafort",
+        "ticket": [
+            {
+                "type": "Standard",
+                "price": 2000,
+                "totalTickets": 50,
+                "availableTickets": 46,
+                "description": "Accès standard à l'événement",
+                "available": true,
+                "_id": "68ab89918a53e215489d2f0d"
+            }
+        ],
+        "organizer": {
+            "_id": "68ab88b38a53e215489d2ee2",
+            "user": {
+                "_id": "68ab88548a53e215489d2ed2",
+                "name": "Amadou Sow",
+                "email": "contact@amadousow.dev",
+                "phone": "248489584"
+            },
+            "companyName": "Association JN",
+            "phone": "248489584",
+            "type": "entreprise",
+            "contactEmail": "contact@amadousow.dev"
+        },
+        "isActive": true,
+        "paymentMethods": [
+            "cash"
+        ],
+        "createdAt": "2025-08-24T21:52:17.701Z",
+        "updatedAt": "2025-10-19T23:22:54.324Z",
+        "__v": 0
     }
 ]

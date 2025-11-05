@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { UserInfo } from '../types';
-import { DEFAULT_PROFILE_IMAGE } from '../constants/profile';
 
 const API_URL = "https://eventick.onrender.com";
 
@@ -11,7 +10,7 @@ export const useUserInfo = () => {
     name: '',
     email: '',
     phone: '',
-    profileImage: DEFAULT_PROFILE_IMAGE,
+    profilePicture: '',
     role: 'user',
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -28,13 +27,13 @@ export const useUserInfo = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const { name, email, phone, role } = response.data.user;
+      const { name, email, phone, role, profilePicture } = response.data.user;
       setUserInfo({
         name,
         email,
         phone,
         role,
-        profileImage: DEFAULT_PROFILE_IMAGE,
+        profilePicture,
       });
     } catch (error) {
       console.error("Erreur de chargement des infos utilisateur:", error);

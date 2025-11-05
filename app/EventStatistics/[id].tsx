@@ -12,11 +12,10 @@ const EventStatistics = () => {
         title: "Concert de la Renaissance",
         totalTickets: 500,
         ticketsSold: 375,
-        revenue: 12500000, // en MRO
+        revenue: 12500000, 
         ticketTypes: [
             { name: "VIP", sold: 75, color: "#FFC107" },
             { name: "Standard", sold: 250, color: "#4CAF50" },
-            { name: "Étudiant", sold: 50, color: "#2196F3" }
         ],
         salesTimeline: [
             { day: "01/08", tickets: 50 },

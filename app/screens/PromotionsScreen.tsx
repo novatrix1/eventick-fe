@@ -14,7 +14,6 @@ import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 
-// 🟩 TYPES
 type Promotion = {
   id: string;
   title: string;

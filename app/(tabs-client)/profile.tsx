@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, Alert } from 'react-native';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
+import axios from 'axios';
 
 import { useUserInfo } from '@/hooks/useUserInfo';
 import { useOrganizerStatus } from '@/hooks/useOrganizerStatus';
@@ -11,15 +12,13 @@ import { HELP_OPTIONS } from '@/constants/profile';
 import UserInfoSection from '@/components/UserInfoSection';
 import ProfileActionItem from '@/components/ProfileActionItem';
 import HelpOptionItem from '@/components/HelpOptionItem';
-import ChangePasswordModal from '@/components/ChangePasswordModal';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 
+const API_URL = "https://eventick.onrender.com";
+
 const ProfileScreen = () => {
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [password, setPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const { userInfo, isLoading: userInfoLoading } = useUserInfo();
   const { organizerStatus } = useOrganizerStatus(userInfo.role);
@@ -28,13 +27,41 @@ const ProfileScreen = () => {
     alert(`Navigation vers: ${id}`);
   };
 
-  const changePassword = () => {
-    setShowPasswordModal(false);
-    alert('Mot de passe changé avec succès!');
-    // Réinitialiser les champs
-    setPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+  const handleChangePassword = async () => {
+    if (!userInfo?.email) {
+      Alert.alert('Erreur', 'Impossible de récupérer votre email');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const response = await axios.post(`${API_URL}/api/auth/forgot-password`, { 
+        email: userInfo.email 
+      });
+      
+      Alert.alert(
+        'Succès', 
+        response.data.message || 'Code de réinitialisation envoyé par email',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.push({
+              pathname: 'screens/reset-password',
+              params: { email: userInfo.email }
+            })
+          }
+        ]
+      );
+    } catch (error: any) {
+      console.error('Erreur changement mot de passe:', error.response?.data || error.message);
+      Alert.alert(
+        'Erreur', 
+        error.response?.data?.message || 'Erreur lors de l\'envoi du code'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const deleteAccount = () => {
@@ -60,7 +87,6 @@ const ProfileScreen = () => {
         >
           <UserInfoSection userInfo={userInfo} organizerStatus={organizerStatus} />
 
-          {/* Section Mon Profil */}
           <View className="mb-10">
             <Text className="text-white text-xl font-bold mb-5">Mon profil</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -87,7 +113,6 @@ const ProfileScreen = () => {
             </View>
           </View>
 
-          {/* Centre d'aide */}
           <View className="mb-10">
             <Text className="text-white text-xl font-bold mb-5">{"Centre d'aide"}</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -102,12 +127,12 @@ const ProfileScreen = () => {
             </View>
           </View>
 
-          {/* Actions du compte */}
           <View className="mb-20 rounded-xl overflow-hidden border border-white/10 bg-white/10">
             <ProfileActionItem
               icon="key"
-              title="Changer le mot de passe"
-              onPress={() => setShowPasswordModal(true)}
+              title={loading ? "Envoi en cours..." : "Changer le mot de passe"}
+              onPress={handleChangePassword}
+              disabled={loading}
             />
 
             <View className="border-t border-white/20">
@@ -122,7 +147,7 @@ const ProfileScreen = () => {
 
             <View className="border-t border-white/20">
               <ProfileActionItem
-                icon="delete"
+                icon="trash"
                 title="Supprimer mon compte"
                 onPress={() => setShowDeleteModal(true)}
                 color="#FF6347"
@@ -131,18 +156,6 @@ const ProfileScreen = () => {
             </View>
           </View>
         </ScrollView>
-
-        <ChangePasswordModal
-          visible={showPasswordModal}
-          onClose={() => setShowPasswordModal(false)}
-          password={password}
-          setPassword={setPassword}
-          newPassword={newPassword}
-          setNewPassword={setNewPassword}
-          confirmPassword={confirmPassword}
-          setConfirmPassword={setConfirmPassword}
-          onSubmit={changePassword}
-        />
 
         <DeleteAccountModal
           visible={showDeleteModal}

@@ -21,6 +21,15 @@ export const useTickets = () => {
         return;
       }
 
+      const eventsResponse = await fetch(`${API_URL}/api/events`);
+      if (!eventsResponse.ok) throw new Error("Erreur lors de la récupération des événements");
+      const eventsData = await eventsResponse.json();
+
+      const eventImages: Record<string, string | null> = {};
+      eventsData.forEach((event: any) => {
+        eventImages[event._id] = event.image;
+      });
+
       const response = await fetch(`${API_URL}/api/tickets/my-tickets`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -33,7 +42,13 @@ export const useTickets = () => {
       }
 
       const data: ApiResponse = await response.json();
-      const { activeTickets: formattedActiveTickets, expiredTickets: formattedExpiredTickets } = formatTickets(data.bookings);
+      console.log('API Response:', data); // Debug log
+
+      const { activeTickets: formattedActiveTickets, expiredTickets: formattedExpiredTickets } =
+        formatTickets(data.bookings, eventImages);
+
+      console.log('Formatted Active Tickets:', formattedActiveTickets); // Debug log
+      console.log('Formatted Expired Tickets:', formattedExpiredTickets); // Debug log
 
       setActiveTickets(formattedActiveTickets);
       setExpiredTickets(formattedExpiredTickets);

@@ -1,3 +1,4 @@
+//types/index.ts
 import { Ionicons } from "@expo/vector-icons";
 
 export type UserType = 'client' | 'organizer' | null;
@@ -143,17 +144,26 @@ export interface FilterOption {
 export type NotificationType = 'event' | 'promotion' | 'reminder' | 'payment' | 'warning' | 'info' | 'success';;
 
 export interface Notification {
-  id: string;
-  type: NotificationType;
+  _id: string;
+  notificationType: string;
+  receiver: string | { _id: string; name: string; email: string };
   title: string;
-  message: string;
-  timestamp: string;
-  read: boolean;
-  category?: string;
-  eventId?: string;
-  amount?: string;
-  time: string;
+  Message: string;
+  status: 'send' | 'read' | 'deleted';
+  createdAt: string;
+  updatedAt: string;
+  __v?: number;
+}
 
+export interface NotificationResponse {
+  message: string;
+  notifications: Notification[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalNotifications: number;
+    notificationsPerPage: number;
+  };
 }
 
 export interface NotificationSettings {
@@ -179,7 +189,7 @@ export interface UserInfo {
   name: string;
   email: string;
   phone: string;
-  profileImage: string;
+  profilePicture: string;
   role: string;
 }
 
@@ -196,23 +206,25 @@ export interface HelpOption {
 }
 
 
+
+//types
+export interface ApiResponse {
+  message: string;
+  bookings: Booking[];
+}
+
 export interface Booking {
   bookingRef: string;
   event: Event | null;
   ticketType: string;
   totalTickets: number;
   totalPrice: number;
-  paymentStatus: 'pending' | 'completed' | 'failed';
+  paymentStatus: 'pending' | 'approved' | 'rejected';
   tickets: Ticket[];
-  createdAt: string;
   status: string;
+  createdAt: string;
 }
 
-
-export interface ApiResponse {
-  message: string;
-  bookings: Booking[];
-}
 
 export interface GroupedTickets {
   [eventId: string]: {
@@ -221,6 +233,7 @@ export interface GroupedTickets {
     totalTickets: number;
     totalPrice: number;
     paymentStatus: string;
+    bookingRef: string;
   };
 }
 
@@ -234,7 +247,7 @@ export interface FormattedTicket {
   ticketType: string;
   price: string;
   status: 'active' | 'used' | 'expired';
-  paymentStatus: 'pending' | 'confirmed' | 'failed';
+  paymentStatus: 'pending' | 'approved' | 'rejected';
   qrCode: string;
   image: string;
   daysLeft: number;
@@ -242,6 +255,8 @@ export interface FormattedTicket {
   bookingRef: string;
   ticketRef: string;
   ticketNumber: number;
+  used: boolean;
+  encryptedData: string;
 }
 
 

@@ -1,148 +1,453 @@
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Platform, Image } from 'react-native'
-import React, { useState } from 'react'
-import BackgroundWrapper from '@/components/BackgroundWrapper'
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
-import DateTimePicker from '@react-native-community/datetimepicker'
-import * as ImagePicker from 'expo-image-picker'
-import Animated, { FadeInDown } from 'react-native-reanimated'
-import * as Haptics from 'expo-haptics'
-import { Dropdown } from 'react-native-element-dropdown';
+import BackgroundWrapper from "@/components/BackgroundWrapper";
+import Step1 from "@/components/CreateEventSteps/Step1";
+import Step2 from "@/components/CreateEventSteps/Step2";
+import Step3 from "@/components/CreateEventSteps/Step3";
+import Step4 from "@/components/CreateEventSteps/Step4";
+import Step5 from "@/components/CreateEventSteps/Step5";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useState, useEffect } from "react";
+import {
+  Alert,
+  Platform,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
+const API_URL = "https://eventick.onrender.com";
 
-const EditEvent = () => {
-  const router = useRouter()
-  const [currentStep, setCurrentStep] = useState(1)
+interface EventData {
+  title: string;
+  description: string;
+  date: Date;
+  startTime: Date;
+  endTime: Date;
+  location: string;
+  city: string;
+  wilaya?: string;
+  moughataa?: string;
+  category: string;
+  image: string | null;
+  isPromo: boolean;
+  promoDiscount: number;
+  promoEndDate: Date;
+}
 
-  const [eventData, setEventData] = useState({
-    title: '',
-    description: '',
+interface TicketType {
+  id: string;
+  type: string;
+  price: number;
+  description: string;
+  totalTickets: number;
+  availableTickets: number;
+  available: boolean;
+}
+
+const UpdateEvent = () => {
+  const router = useRouter();
+  const { id } = useLocalSearchParams();
+  const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [eventData, setEventData] = useState<EventData>({
+    title: "",
+    description: "",
     date: new Date(),
     startTime: new Date(),
     endTime: new Date(new Date().setHours(new Date().getHours() + 2)),
-    location: '',
-    venue: '',
-    totalCapacity: '',
-    category: '',
-    image: null as string | null,
+    location: "",
+    city: "",
+    category: "",
+    image: null,
     isPromo: false,
     promoDiscount: 0,
     promoEndDate: new Date(),
-  })
+  });
 
-  const [ticketTypes, setTicketTypes] = useState([
-    { id: '1', name: 'Standard', price: '', description: 'Accès standard à l\'événement', quantity: '' },
-  ])
+  const [ticketTypes, setTicketTypes] = useState<TicketType[]>([
+    {
+      id: "1",
+      type: "Standard",
+      price: 0,
+      description: "Accès standard à l'événement",
+      totalTickets: 0,
+      availableTickets: 0,
+      available: true,
+    },
+  ]);
 
-  const [showDatePicker, setShowDatePicker] = useState(false)
-  const [showStartTimePicker, setShowStartTimePicker] = useState(false)
-  const [showEndTimePicker, setShowEndTimePicker] = useState(false)
-  const [showPromoEndDatePicker, setShowPromoEndDatePicker] = useState(false)
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showPromoEndDatePicker, setShowPromoEndDatePicker] = useState(false);
 
-  const categories = [
-    'Concert', 'Religion', 'Sport', 'Culture',
-    'Business', 'Festival', 'Conférence', 'Théâtre', 'Autre'
-  ]
+  const getLocalDate = (date: Date) => {
+    const localDate = new Date(date);
+    localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+    return localDate;
+  };
 
-  const mauritaniaCities = [
-    'Nouakchott', 'Nouadhibou', 'Atar', 'Kaédi', 'Kiffa',
-    'Rosso', 'Zouerate', 'Aleg', 'Sélibaby', 'Tidjikja'
-  ]
+  // Charger les données de l'événement existant
+  useEffect(() => {
+    const fetchEventData = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        if (!token) {
+          Alert.alert("Erreur", "Vous devez être connecté");
+          router.replace("/login");
+          return;
+        }
+
+        const response = await axios.get(`${API_URL}/api/events/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const event = response.data;
+        console.log("Données de l'événement chargées:", event);
+
+        // Formater les dates correctement en gérant le timezone
+        const eventDate = new Date(event.date);
+
+        // Convertir le temps en Date
+        const [hours, minutes] = event.time.split(':');
+        const startTime = new Date(eventDate);
+        startTime.setHours(parseInt(hours), parseInt(minutes));
+
+        const endTime = new Date(startTime);
+        endTime.setHours(endTime.getHours() + 2);
+
+        setEventData({
+          title: event.title || "",
+          description: event.description || "",
+          date: getLocalDate(eventDate),
+          startTime: getLocalDate(startTime),
+          endTime: getLocalDate(endTime),
+          location: event.location || "",
+          city: event.city || "",
+          wilaya: event.wilaya || "",
+          moughataa: event.moughataa || "",
+          category: event.category || "",
+          image: event.image || null,
+          isPromo: event.isPromo || false,
+          promoDiscount: event.promoDiscount || 0,
+          promoEndDate: event.promoEndDate ? getLocalDate(new Date(event.promoEndDate)) : getLocalDate(new Date()),
+        });
+
+        if (event.ticket && event.ticket.length > 0) {
+          const formattedTickets: TicketType[] = event.ticket.map((ticket: any, index: number) => ({
+            id: ticket._id || `ticket-${index}`,
+            type: ticket.type || "",
+            price: ticket.price || 0,
+            description: ticket.description || "",
+            totalTickets: ticket.totalTickets || 0,
+            availableTickets: ticket.availableTickets || 0,
+            available: ticket.available !== undefined ? ticket.available : true,
+          }));
+          setTicketTypes(formattedTickets);
+        } else {
+          setTicketTypes([{
+            id: "1",
+            type: "Standard",
+            price: 0,
+            description: "Accès standard à l'événement",
+            totalTickets: 0,
+            availableTickets: 0,
+            available: true,
+          }]);
+        }
+
+      } catch (error: any) {
+        console.error("Erreur lors du chargement:", error);
+        Alert.alert(
+          "Erreur",
+          error.response?.data?.message || "Impossible de charger l'événement"
+        );
+        router.back();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchEventData();
+    }
+  }, [id]);
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    const currentDate = selectedDate || eventData.date
-    setShowDatePicker(Platform.OS === 'ios')
-    setEventData({ ...eventData, date: currentDate })
-  }
+    const currentDate = selectedDate || eventData.date;
+    setShowDatePicker(Platform.OS === "ios");
+    setEventData({ ...eventData, date: currentDate });
+  };
 
   const handleStartTimeChange = (event: any, selectedTime?: Date) => {
-    const currentTime = selectedTime || eventData.startTime
-    setShowStartTimePicker(Platform.OS === 'ios')
-    setEventData({ ...eventData, startTime: currentTime })
-  }
+    const currentTime = selectedTime || eventData.startTime;
+    setShowStartTimePicker(Platform.OS === "ios");
+    setEventData({ ...eventData, startTime: currentTime });
+  };
 
   const handleEndTimeChange = (event: any, selectedTime?: Date) => {
-    const currentTime = selectedTime || eventData.endTime
-    setShowEndTimePicker(Platform.OS === 'ios')
-    setEventData({ ...eventData, endTime: currentTime })
-  }
+    const currentTime = selectedTime || eventData.endTime;
+    setShowEndTimePicker(Platform.OS === "ios");
+    setEventData({ ...eventData, endTime: currentTime });
+  };
 
   const handlePromoEndDateChange = (event: any, selectedDate?: Date) => {
-    const currentDate = selectedDate || eventData.promoEndDate
-    setShowPromoEndDatePicker(Platform.OS === 'ios')
-    setEventData({ ...eventData, promoEndDate: currentDate })
-  }
+    const currentDate = selectedDate || eventData.promoEndDate;
+    setShowPromoEndDatePicker(Platform.OS === "ios");
+    setEventData({ ...eventData, promoEndDate: currentDate });
+  };
 
   const addTicketType = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    const newId = (ticketTypes.length + 1).toString()
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newId = Date.now().toString();
     setTicketTypes([
       ...ticketTypes,
-      { id: newId, name: '', price: '', description: '', quantity: '' }
-    ])
-  }
+      {
+        id: newId,
+        type: "",
+        price: 0,
+        description: "",
+        totalTickets: 0,
+        availableTickets: 0,
+        available: true,
+      },
+    ]);
+  };
 
   const removeTicketType = (id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (ticketTypes.length > 1) {
-      setTicketTypes(ticketTypes.filter(type => type.id !== id))
+      setTicketTypes(ticketTypes.filter((type) => type.id !== id));
     }
-  }
+  };
 
-  // Mettre à jour un type de billet
-  const updateTicketType = (id: string, field: string, value: string) => {
-    setTicketTypes(ticketTypes.map(type =>
-      type.id === id ? { ...type, [field]: value } : type
-    ))
-  }
+  const updateTicketType = (id: string, field: string, value: any) => {
+    setTicketTypes(
+      ticketTypes.map((type) => {
+        if (type.id === id) {
+          if (field === "totalTickets") {
+            const newTotalTickets = value;
+            const currentSold = type.totalTickets - type.availableTickets;
+            const newAvailableTickets = Math.max(0, newTotalTickets - currentSold);
+
+            return {
+              ...type,
+              [field]: newTotalTickets,
+              availableTickets: newAvailableTickets,
+            };
+          }
+          return { ...type, [field]: value };
+        }
+        return type;
+      })
+    );
+  };
 
   const pickImage = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [16, 9],
       quality: 0.8,
-    })
+    });
 
     if (!result.canceled) {
-      setEventData({ ...eventData, image: result.assets[0].uri })
+      setEventData({ ...eventData, image: result.assets[0].uri });
     }
-  }
+  };
 
-  const handleSubmit = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-    router.back()
+
+ const handleSubmit = async () => {
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  setIsSubmitting(true);
+
+  try {
+    console.log("=== DÉBUT MISE À JOUR ===");
+
+    if (
+      !eventData.title ||
+      !eventData.description ||
+      !eventData.location ||
+      !eventData.city ||
+      !eventData.category ||
+      ticketTypes.length === 0
+    ) {
+      Alert.alert("Erreur", "Veuillez remplir tous les champs obligatoires");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      Alert.alert("Erreur", "Vous devez être connecté");
+      router.replace("/login");
+      return;
+    }
+
+    const formatDateForAPI = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    const formatTimeForAPI = (date: Date) => {
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      return `${hours}:${minutes}`;
+    };
+
+    const formattedDate = formatDateForAPI(eventData.date);
+    const formattedTime = formatTimeForAPI(eventData.startTime);
+
+    console.log("📤 Données préparées:", {
+      title: eventData.title,
+      date: formattedDate,
+      time: formattedTime,
+      location: eventData.location,
+      city: eventData.city,
+      category: eventData.category,
+    });
+
+    const hasNewImage =
+      eventData.image &&
+      typeof eventData.image === "string" &&
+      !eventData.image.startsWith("http");
+
+    let payload: any;
+    let headers: any = {
+      Authorization: `Bearer ${token}`,
+    };
+
+    if (hasNewImage) {
+      payload = new FormData();
+      payload.append("title", eventData.title);
+      payload.append("description", eventData.description);
+      payload.append("location", eventData.location);
+      payload.append("date", formattedDate);
+      payload.append("time", formattedTime);
+      payload.append("category", eventData.category);
+      payload.append("city", eventData.city);
+
+      if (eventData.wilaya) payload.append("wilaya", eventData.wilaya);
+      if (eventData.moughataa) payload.append("moughataa", eventData.moughataa);
+
+      ticketTypes.forEach((ticket, index) => {
+        payload.append(`ticket[${index}][type]`, ticket.type);
+        payload.append(`ticket[${index}][totalTickets]`, ticket.totalTickets.toString());
+        payload.append(`ticket[${index}][description]`, ticket.description);
+        payload.append(`ticket[${index}][price]`, ticket.price.toString());
+        payload.append(`ticket[${index}][availableTickets]`, ticket.availableTickets.toString());
+        payload.append(`ticket[${index}][available]`, ticket.available.toString());
+      });
+
+      payload.append("image", {
+        uri: eventData.image,
+        type: "image/jpeg",
+        name: "event-image.jpg",
+      } as any);
+
+      headers["Content-Type"] = "multipart/form-data";
+    } 
+    else {
+
+      payload = {
+        title: eventData.title,
+        description: eventData.description,
+        date: formattedDate,
+        time: formattedTime,
+        location: eventData.location,
+        city: eventData.city,
+        category: eventData.category,
+        wilaya: eventData.wilaya,
+        moughataa: eventData.moughataa,
+        ticket: ticketTypes.map((t) => ({
+          type: t.type,
+          description: t.description,
+          price: t.price,
+          totalTickets: t.totalTickets,
+          availableTickets: t.availableTickets,
+          available: t.available,
+        })),
+      };
+
+      headers["Content-Type"] = "application/json";
+    }
+
+
+    const response = await axios.put(`${API_URL}/api/events/${id}`, payload, {
+      headers,
+      timeout: 10000,
+    });
+
+  
+
+    if (response.data.title === eventData.title) {
+      Alert.alert("Succès", "Événement modifié avec succès !");
+      router.replace("/(tabs-organisateur)/events");
+    } else {
+      Alert.alert("Attention", "La modification semble incomplète");
+    }
+  } catch (err: any) {
+    console.error("Erreur détaillée:", {
+      message: err.message,
+      status: err.response?.status,
+      data: err.response?.data,
+    });
+
+    let errorMessage = "Échec de la modification de l'événement";
+    if (err.response?.status === 403) {
+      errorMessage = "Vous n'êtes pas autorisé à modifier cet événement";
+    } else if (err.response?.status === 404) {
+      errorMessage = "Événement non trouvé";
+    } else if (err.response?.data?.message) {
+      errorMessage = err.response.data.message;
+    }
+
+    Alert.alert("Erreur", errorMessage);
+  } finally {
+    setIsSubmitting(false);
   }
+};
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    })
-  }
+    return date.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+    return date.toLocaleTimeString("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   const goToNextStep = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (currentStep < 5) {
-      setCurrentStep(currentStep + 1)
+      setCurrentStep(currentStep + 1);
     }
-  }
+  };
 
   const goToPreviousStep = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
+      setCurrentStep(currentStep - 1);
     }
-  }
+  };
 
   const ProgressBar = () => {
     return (
@@ -151,523 +456,105 @@ const EditEvent = () => {
           <React.Fragment key={step}>
             <View
               className={`w-8 h-8 rounded-full items-center justify-center ${currentStep >= step
-                ? 'bg-teal-400'
-                : 'bg-white/10 border border-teal-400/50'
+                ? "bg-teal-400"
+                : "bg-white/10 border border-teal-400/50"
                 }`}
             >
-              <Text className={`font-bold ${currentStep >= step ? 'text-gray-900' : 'text-teal-400'}`}>
+              <Text
+                className={`font-bold ${currentStep >= step ? "text-gray-900" : "text-teal-400"}`}
+              >
                 {step}
               </Text>
             </View>
             {step < 5 && (
               <View
-                className={`flex-1 h-1 mx-1 ${currentStep > step ? 'bg-teal-400' : 'bg-white/10'
+                className={`flex-1 h-1 mx-1 ${currentStep > step ? "bg-teal-400" : "bg-white/10"
                   }`}
               />
             )}
           </React.Fragment>
         ))}
       </View>
-    )
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <BackgroundWrapper>
+        <View className="flex-1 justify-center items-center">
+          <Text className="text-white text-lg">Chargement de l'événement...</Text>
+        </View>
+      </BackgroundWrapper>
+    );
   }
-
-  const Step1 = () => {
-    const [categoryDropdown, setCategoryDropdown] = useState(eventData.category);
-
-    return (
-      <Animated.View entering={FadeInDown.duration(500)} className="px-4 py-6">
-
-        <Text className="text-white text-2xl font-extrabold mb-6">
-          Étape 1/5 : Informations de base
-        </Text>
-
-        <View className="mb-8">
-          <Text className="text-white text-xl font-semibold mb-3">
-            Image de l'événement
-          </Text>
-          <TouchableOpacity
-            className="bg-white/10 border-2 border-dashed border-teal-400/50 rounded-2xl h-56 items-center justify-center overflow-hidden"
-            onPress={pickImage}
-            activeOpacity={0.7}
-          >
-            {eventData.image ? (
-              <Image
-                source={{ uri: eventData.image }}
-                className="w-full h-full rounded-2xl"
-                resizeMode="cover"
-              />
-            ) : (
-              <View className="items-center">
-                <Ionicons name="image" size={56} color="#68f2f4" />
-                <Text className="text-teal-400 mt-3 text-lg font-medium">
-                  Ajouter une image
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View className="space-y-6">
-
-          <View>
-            <Text className="text-teal-400 text-lg mb-2 font-medium">
-              Titre de l'événement
-            </Text>
-            <TextInput
-              className="bg-white/10 text-white p-5 rounded-2xl text-lg"
-              placeholder="Nommez votre événement"
-              placeholderTextColor="#9ca3af"
-              value={eventData.title}
-              onChangeText={text => setEventData({ ...eventData, title: text })}
-            />
-          </View>
-
-          <View>
-            <Text className="text-teal-400 text-lg mb-2 font-medium">
-              Description
-            </Text>
-            <TextInput
-              className="bg-white/10 text-white p-5 rounded-2xl text-lg h-36"
-              placeholder="Décrivez votre événement..."
-              placeholderTextColor="#9ca3af"
-              multiline
-              textAlignVertical="top"
-              value={eventData.description}
-              onChangeText={text => setEventData({ ...eventData, description: text })}
-            />
-          </View>
-
-          <View>
-            <Text className="text-teal-400 text-lg mb-2 font-medium">Catégorie</Text>
-            <Dropdown
-              style={{
-                backgroundColor: 'rgba(32,166,167,0.2)',
-                borderRadius: 16,
-                paddingHorizontal: 16,
-                height: 55,
-              }}
-              placeholderStyle={{ color: '#9ca3af', fontSize: 16 }}
-              selectedTextStyle={{ color: 'white', fontSize: 16, fontWeight: '500' }}
-              data={categories.map(cat => ({ label: cat, value: cat }))}
-              labelField="label"
-              valueField="value"
-              placeholder="Sélectionnez une catégorie"
-              value={categoryDropdown}
-              onChange={item => {
-                setCategoryDropdown(item.value);
-                setEventData({ ...eventData, category: item.value });
-              }}
-              search
-              searchPlaceholder="Recherchez une catégorie..."
-              placeholderTextColor="#9ca3af"
-              searchStyle={{
-                backgroundColor: 'rgba(32,166,167,0.2)',
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                height: 45,
-                color: 'white',
-                marginBottom: 8,
-              }}
-              dropdownStyle={{
-                backgroundColor: '#20a6a7',
-                borderRadius: 16,
-                maxHeight: 250,
-              }}
-              renderItem={item => (
-                <View
-                  style={{
-                    backgroundColor: '#20a6a7',
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    borderBottomWidth: 0.5,
-                    borderBottomColor: 'rgba(255,255,255,0.2)',
-                  }}
-                >
-                  <Text style={{ color: 'white', fontSize: 16 }}>{item.label}</Text>
-                </View>
-              )}
-              renderLeftIcon={() => (
-                <Ionicons name="list-outline" size={20} color="white" style={{ marginRight: 8 }} />
-              )}
-            />
-          </View>
-
-        </View>
-      </Animated.View>
-    );
-  };
-
-  const Step2 = () => (
-    <Animated.View entering={FadeInDown.duration(500)} className="px-4 py-6">
-
-      <Text className="text-white text-2xl font-extrabold mb-6">
-        Étape 2/5 : Date et heure
-      </Text>
-
-      <View className="space-y-6">
-
-        <View>
-          <Text className="text-teal-400 text-lg mb-2 font-medium">Date</Text>
-          <TouchableOpacity
-            className="bg-white/10 p-5 rounded-2xl flex-row justify-between items-center"
-            onPress={() => setShowDatePicker(true)}
-            activeOpacity={0.7}
-          >
-            <Text className="text-white text-lg">{formatDate(eventData.date)}</Text>
-            <MaterialCommunityIcons name="calendar" size={28} color="#68f2f4" />
-          </TouchableOpacity>
-          {showDatePicker && (
-            <DateTimePicker
-              value={eventData.date}
-              mode="date"
-              display="default"
-              onChange={handleDateChange}
-              minimumDate={new Date()}
-            />
-          )}
-        </View>
-
-        <View className="flex-row justify-between space-x-4">
-
-          <View className="flex-1">
-            <Text className="text-teal-400 text-lg mb-2 font-medium">Heure de début</Text>
-            <TouchableOpacity
-              className="bg-white/10 p-5 rounded-2xl flex-row justify-between items-center"
-              onPress={() => setShowStartTimePicker(true)}
-              activeOpacity={0.7}
-            >
-              <Text className="text-white text-lg">{formatTime(eventData.startTime)}</Text>
-              <MaterialCommunityIcons name="clock" size={28} color="#68f2f4" />
-            </TouchableOpacity>
-            {showStartTimePicker && (
-              <DateTimePicker
-                value={eventData.startTime}
-                mode="time"
-                display="default"
-                onChange={handleStartTimeChange}
-              />
-            )}
-          </View>
-
-          <View className="flex-1">
-            <Text className="text-teal-400 text-lg mb-2 font-medium">Heure de fin</Text>
-            <TouchableOpacity
-              className="bg-white/10 p-5 rounded-2xl flex-row justify-between items-center"
-              onPress={() => setShowEndTimePicker(true)}
-              activeOpacity={0.7}
-            >
-              <Text className="text-white text-lg">{formatTime(eventData.endTime)}</Text>
-              <MaterialCommunityIcons name="clock" size={28} color="#68f2f4" />
-            </TouchableOpacity>
-            {showEndTimePicker && (
-              <DateTimePicker
-                value={eventData.endTime}
-                mode="time"
-                display="default"
-                onChange={handleEndTimeChange}
-                minimumDate={eventData.startTime}
-              />
-            )}
-          </View>
-
-        </View>
-      </View>
-    </Animated.View>
-  );
-
-
-  const Step3 = () => {
-    const [cityDropdown, setCityDropdown] = useState(eventData.location);
-
-    return (
-      <Animated.View entering={FadeInDown.duration(500)} className="px-4 py-6">
-
-        <Text className="text-white text-2xl font-extrabold mb-6">
-          Étape 3/5 : Lieu
-        </Text>
-
-        <View className="space-y-6">
-
-          <View>
-            <Text className="text-teal-400 text-lg mb-2 font-medium">Ville</Text>
-            <Dropdown
-              style={{
-                backgroundColor: 'rgba(32,166,167,0.2)', 
-                borderRadius: 16,
-                paddingHorizontal: 16,
-                height: 55,
-              }}
-              placeholderStyle={{ color: '#9ca3af', fontSize: 16 }}
-              selectedTextStyle={{ color: 'white', fontSize: 16, fontWeight: '500' }}
-              data={mauritaniaCities.map(city => ({ label: city, value: city }))}
-              labelField="label"
-              valueField="value"
-              placeholder="Sélectionnez une ville"
-              value={cityDropdown}
-              onChange={item => {
-                setCityDropdown(item.value);
-                setEventData({ ...eventData, location: item.value });
-              }}
-              search
-              searchPlaceholder="Recherchez une ville..."
-              placeholderTextColor="#9ca3af"
-              searchStyle={{
-                backgroundColor: 'rgba(32,166,167,0.2)', 
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                height: 45,
-                color: 'white',
-                marginBottom: 8,
-              }}
-              dropdownStyle={{
-                backgroundColor: '#20a6a7', 
-                borderRadius: 16,
-                maxHeight: 250,
-              }}
-              renderItem={item => (
-                <View
-                  style={{
-                    backgroundColor: '#20a6a7',
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    borderBottomWidth: 0.5,
-                    borderBottomColor: 'rgba(255,255,255,0.2)',
-                  }}
-                >
-                  <Text style={{ color: 'white', fontSize: 16 }}>{item.label}</Text>
-                </View>
-              )}
-              renderLeftIcon={() => (
-                <Ionicons name="location-outline" size={20} color="white" style={{ marginRight: 8 }} />
-              )}
-            />
-          </View>
-
-          <View>
-            <Text className="text-teal-400 text-lg mb-2 font-medium">Salle / lieu spécifique</Text>
-            <TextInput
-              className="bg-white/10 text-white p-5 rounded-2xl text-lg"
-              placeholder="Nom de la salle ou lieu"
-              placeholderTextColor="#9ca3af"
-              value={eventData.venue}
-              onChangeText={text => setEventData({ ...eventData, venue: text })}
-            />
-          </View>
-
-          <View>
-            <Text className="text-teal-400 text-lg mb-2 font-medium">Capacité totale</Text>
-            <TextInput
-              className="bg-white/10 text-white p-5 rounded-2xl text-lg"
-              placeholder="Nombre maximum de participants"
-              placeholderTextColor="#9ca3af"
-              keyboardType="numeric"
-              value={eventData.totalCapacity}
-              onChangeText={text => setEventData({ ...eventData, totalCapacity: text })}
-            />
-          </View>
-
-        </View>
-      </Animated.View>
-    );
-  };
-
-
-  const Step4 = () => (
-    <Animated.View entering={FadeInDown.duration(500)} className="px-4 py-6">
-
-      <Text className="text-white text-2xl font-extrabold mb-6">
-        Étape 4/5 : Promotion
-      </Text>
-
-      <View className="flex-row items-center justify-between mb-6">
-        <Text className="text-white text-lg font-medium">Activer une promotion</Text>
-        <TouchableOpacity
-          className={`w-14 h-7 rounded-full p-1 flex justify-center ${eventData.isPromo ? 'bg-teal-400' : 'bg-gray-700'}`}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-            setEventData({ ...eventData, isPromo: !eventData.isPromo })
-          }}
-          activeOpacity={0.7}
-        >
-          <View
-            className={`bg-white w-5 h-5 rounded-full shadow ${eventData.isPromo ? 'ml-7' : 'ml-0'
-              }`}
-            style={{ transition: 'margin-left 0.3s' }}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {eventData.isPromo && (
-        <View className="space-y-6">
-
-          <View className="flex-row justify-between space-x-4">
-
-            <View className="flex-1">
-              <Text className="text-teal-400 text-lg mb-2 font-medium">Pourcentage de réduction</Text>
-              <TextInput
-                className="bg-white/10 text-white p-5 rounded-2xl text-lg"
-                placeholder="Ex: 20"
-                placeholderTextColor="#9ca3af"
-                keyboardType="numeric"
-                value={eventData.promoDiscount ? eventData.promoDiscount.toString() : ''}
-                onChangeText={text =>
-                  setEventData({ ...eventData, promoDiscount: parseInt(text) || 0 })
-                }
-              />
-            </View>
-
-            <View className="flex-1">
-              <Text className="text-teal-400 text-lg mb-2 font-medium">Fin de la promotion</Text>
-              <TouchableOpacity
-                className="bg-white/10 p-5 rounded-2xl flex-row justify-between items-center"
-                onPress={() => setShowPromoEndDatePicker(true)}
-                activeOpacity={0.7}
-              >
-                <Text className="text-white text-lg">{formatDate(eventData.promoEndDate)}</Text>
-                <MaterialCommunityIcons name="calendar" size={28} color="#68f2f4" />
-              </TouchableOpacity>
-              {showPromoEndDatePicker && (
-                <DateTimePicker
-                  value={eventData.promoEndDate}
-                  mode="date"
-                  display="default"
-                  onChange={handlePromoEndDateChange}
-                  minimumDate={new Date()}
-                />
-              )}
-            </View>
-          </View>
-
-          <View className="bg-teal-400/10 p-4 rounded-2xl">
-            <Text className="text-teal-400 text-base">
-              La promotion sera automatiquement désactivée après la date de fin spécifiée.
-            </Text>
-          </View>
-
-        </View>
-      )}
-    </Animated.View>
-  );
-
-  const Step5 = () => (
-    <Animated.View entering={FadeInDown.duration(500)} className="px-4 py-6">
-
-      <Text className="text-white text-2xl font-extrabold mb-6">
-        Étape 5/5 : Types de billets
-      </Text>
-
-      <View className="flex-row justify-between items-center mb-4">
-        <Text className="text-white text-lg font-semibold">Types de billets</Text>
-        <TouchableOpacity
-          className="flex-row items-center bg-teal-400 py-2 px-4 rounded-full"
-          onPress={addTicketType}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add" size={20} color="#001215" />
-          <Text className="text-gray-900 ml-2 font-medium text-lg">Ajouter</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text className="text-teal-400 mb-4 text-base">
-        La somme des places doit correspondre à la capacité totale de la salle
-      </Text>
-
-      <View className="space-y-6">
-        {ticketTypes.map((type, index) => (
-          <View
-            key={type.id}
-            className="bg-white/10 p-5 rounded-2xl"
-          >
-            <View className="flex-row justify-between items-start mb-4">
-              <Text className="text-white font-semibold text-lg">
-                Type de billet #{index + 1}
-              </Text>
-              {ticketTypes.length > 1 && (
-                <TouchableOpacity onPress={() => removeTicketType(type.id)}>
-                  <Ionicons name="trash" size={22} color="#ef4444" />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View className="space-y-4">
-              <View>
-                <Text className="text-teal-400 text-lg mb-2 font-medium">Nom</Text>
-                <TextInput
-                  className="bg-white/10 text-white p-4 rounded-2xl text-lg"
-                  placeholder="Ex: VIP, Standard..."
-                  placeholderTextColor="#9ca3af"
-                  value={type.name}
-                  onChangeText={text => updateTicketType(type.id, 'name', text)}
-                />
-              </View>
-
-              <View className="flex-row justify-between space-x-4">
-                <View className="flex-1">
-                  <Text className="text-teal-400 text-lg mb-2 font-medium">Prix (MRO)</Text>
-                  <TextInput
-                    className="bg-white/10 text-white p-4 rounded-2xl text-lg"
-                    placeholder="Prix"
-                    placeholderTextColor="#9ca3af"
-                    keyboardType="numeric"
-                    value={type.price}
-                    onChangeText={text => updateTicketType(type.id, 'price', text)}
-                  />
-                </View>
-
-                <View className="flex-1">
-                  <Text className="text-teal-400 text-lg mb-2 font-medium">Quantité</Text>
-                  <TextInput
-                    className="bg-white/10 text-white p-4 rounded-2xl text-lg"
-                    placeholder="Nombre"
-                    placeholderTextColor="#9ca3af"
-                    keyboardType="numeric"
-                    value={type.quantity}
-                    onChangeText={text => updateTicketType(type.id, 'quantity', text)}
-                  />
-                </View>
-              </View>
-
-              <View>
-                <Text className="text-teal-400 text-lg mb-2 font-medium">Description</Text>
-                <TextInput
-                  className="bg-white/10 text-white p-4 rounded-2xl text-lg h-20 textAlignVertical='top'"
-                  placeholder="Avantages, conditions..."
-                  placeholderTextColor="#9ca3af"
-                  multiline
-                  value={type.description}
-                  onChangeText={text => updateTicketType(type.id, 'description', text)}
-                />
-              </View>
-            </View>
-          </View>
-        ))}
-      </View>
-
-    </Animated.View>
-  );
 
   return (
     <BackgroundWrapper>
-      <ScrollView className="flex-1 px-4 pt-16 pb-24">
+      <ScrollView className="flex-1 px-4 pt-16 ">
         <View className="flex-row justify-between items-center mb-4">
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={28} color="#68f2f4" />
           </TouchableOpacity>
           <Text className="text-white text-xl font-bold text-center flex-1">
-            Modifier un événement
+            Modifier l'événement
           </Text>
           <View style={{ width: 28 }} />
         </View>
 
         <ProgressBar />
 
-        {currentStep === 1 && <Step1 />}
-        {currentStep === 2 && <Step2 />}
-        {currentStep === 3 && <Step3 />}
-        {currentStep === 4 && <Step4 />}
-        {currentStep === 5 && <Step5 />}
+        {currentStep === 1 && (
+          <Step1
+            eventData={eventData}
+            setEventData={setEventData}
+            pickImage={pickImage}
+          />
+        )}
+        {currentStep === 2 && (
+          <Step2
+            eventData={eventData}
+            setEventData={setEventData}
+            showDatePicker={showDatePicker}
+            setShowDatePicker={setShowDatePicker}
+            showStartTimePicker={showStartTimePicker}
+            setShowStartTimePicker={setShowStartTimePicker}
+            showEndTimePicker={showEndTimePicker}
+            setShowEndTimePicker={setShowEndTimePicker}
+            handleDateChange={handleDateChange}
+            handleStartTimeChange={handleStartTimeChange}
+            handleEndTimeChange={handleEndTimeChange}
+            formatDate={formatDate}
+            formatTime={formatTime}
+          />
+        )}
+        {currentStep === 3 && (
+          <Step3
+            eventData={eventData}
+            setEventData={setEventData}
+            formatDate={formatDate}
+          />
+        )}
+        {currentStep === 4 && (
+          <Step4
+            eventData={eventData}
+            setEventData={setEventData}
+            showPromoEndDatePicker={showPromoEndDatePicker}
+            setShowPromoEndDatePicker={setShowPromoEndDatePicker}
+            handlePromoEndDateChange={handlePromoEndDateChange}
+            formatDate={formatDate}
+          />
+        )}
+        {currentStep === 5 && (
+          <Step5
+            ticketTypes={ticketTypes}
+            setTicketTypes={setTicketTypes}
+            addTicketType={addTicketType}
+            removeTicketType={removeTicketType}
+            updateTicketType={updateTicketType}
+          />
+        )}
 
-        <View className="flex-row justify-between mt-8">
+        <View className="flex-row justify-between pb-20">
           {currentStep > 1 && (
             <TouchableOpacity
               className="bg-white/10 py-3 px-6 rounded-xl flex-row items-center"
@@ -679,16 +566,19 @@ const EditEvent = () => {
           )}
 
           <TouchableOpacity
-            className={`py-3 px-6 rounded-xl flex-row items-center ${currentStep < 5
-              ? 'bg-teal-400'
-              : 'bg-amber-400'
-              }`}
+            className={`py-3 px-6 rounded-xl flex-row items-center ${currentStep < 5 ? "bg-teal-400" : "bg-amber-400"
+              } ${isSubmitting ? "opacity-50" : ""}`}
             onPress={currentStep < 5 ? goToNextStep : handleSubmit}
+            disabled={isSubmitting}
           >
             <Text className="text-gray-900 font-bold">
-              {currentStep < 5 ? 'Continuer' : 'Mettre à jour'}
+              {isSubmitting
+                ? "Traitement..."
+                : currentStep < 5
+                  ? "Continuer"
+                  : "Modifier"}
             </Text>
-            {currentStep < 5 && (
+            {currentStep < 5 && !isSubmitting && (
               <Ionicons
                 name="arrow-forward"
                 size={20}
@@ -700,8 +590,7 @@ const EditEvent = () => {
         </View>
       </ScrollView>
     </BackgroundWrapper>
-  )
-}
+  );
+};
 
-
-export default EditEvent
+export default UpdateEvent;

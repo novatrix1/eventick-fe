@@ -67,6 +67,8 @@ const HomeScreen = () => {
     setFilteredEvents(categoryEvents);
   }, [selectedCategory, events]);
 
+  
+
   const handleEventPress = (eventId: string) => {
     router.push(`/event/${eventId}`);
   };

@@ -6,7 +6,6 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
-import { Dimensions } from 'react-native';
 
 const API_URL = "https://eventick.onrender.com";
 
@@ -55,15 +54,6 @@ interface Event {
   __v: number;
 }
 
-type TicketType = {
-  id: string;
-  name: string;
-  price: number;
-  description: string;
-  available: boolean;
-  totalTickets: number;
-  availableTickets: number;
-};
 
 const EventDetailScreen = () => {
   const [event, setEvent] = useState<Event | null>(null);

@@ -78,10 +78,7 @@ const LoginScreen = () => {
 
 
   const handleForgotPassword = () => {
-    Alert.alert(
-      "Mot de passe oublié",
-      "La fonctionnalité sera bientôt disponible."
-    );
+    router.push('/screens/forgot-password');
   };
 
   return (
@@ -98,7 +95,6 @@ const LoginScreen = () => {
             contentContainerStyle={{ paddingBottom: 60 }}
             showsVerticalScrollIndicator={false}
           >
-            {/* Logo & titre */}
             <Animated.View entering={FadeInUp.delay(100)} className="items-center mb-12">
               <Image
                 source={require('@/assets/logo.png')}
@@ -108,12 +104,10 @@ const LoginScreen = () => {
               <Text className="text-gray-400 mt-2 text-xl">Votre billetterie en ligne</Text>
             </Animated.View>
 
-            {/* Titre "Connectez-vous" */}
             <Animated.View entering={FadeInUp.delay(200)} className="mb-10">
               <Text className="text-white text-4xl font-bold text-center">Connectez-vous</Text>
             </Animated.View>
 
-            {/* Email */}
             <Animated.View entering={FadeInUp.delay(300)} className="mb-8">
               <Text className="text-gray-400 mb-3 font-semibold text-lg">Email</Text>
               <View className="flex-row items-center bg-white/10 rounded-xl px-6 py-4">
@@ -130,7 +124,6 @@ const LoginScreen = () => {
               </View>
             </Animated.View>
 
-            {/* Mot de passe */}
             <Animated.View entering={FadeInUp.delay(400)} className="mb-10">
               <Text className="text-gray-400 mb-3 font-semibold text-lg">Mot de passe</Text>
               <View className="flex-row items-center bg-white/10 rounded-xl px-6 py-4">
@@ -152,7 +145,6 @@ const LoginScreen = () => {
               </TouchableOpacity>
             </Animated.View>
 
-            {/* Bouton connexion */}
             <Animated.View entering={FadeInUp.delay(500)}>
               <TouchableOpacity
                 className="bg-[#ec673b] py-5 rounded-xl items-center mb-8 shadow-lg shadow-teal-600/70"
@@ -172,7 +164,6 @@ const LoginScreen = () => {
               <View className="flex-1 h-px bg-white/20" />
             </Animated.View>
 
-            {/* Inscription */}
             <Animated.View entering={FadeInUp.delay(800)} className="mt-10 flex-row justify-center">
               <Text className="text-gray-400 font-semibold text-lg">Vous n'avez pas de compte?</Text>
               <Link href="/register" asChild>

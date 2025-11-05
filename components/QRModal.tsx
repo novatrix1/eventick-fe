@@ -1,3 +1,4 @@
+//QrModals.tsx
 import React, { useRef } from 'react';
 import { View, Text, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';

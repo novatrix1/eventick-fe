@@ -9,11 +9,9 @@ import {
   Linking,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import BackgroundWrapper from "@/components/BackgroundWrapper";
 
-const primaryColor = "#ec673b";
 
 type DocumentStatus = "pending" | "validated" | "rejected";
 

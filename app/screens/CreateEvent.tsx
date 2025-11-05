@@ -307,7 +307,6 @@ const CreateEvent = () => {
   return (
     <BackgroundWrapper>
       <ScrollView className="flex-1 px-4 pt-16 ">
-        {/* En-tête */}
         <View className="flex-row justify-between items-center mb-4">
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={28} color="#68f2f4" />

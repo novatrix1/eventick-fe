@@ -4,7 +4,7 @@ import { FormattedTicket } from '../types';
 
 export const useCalendar = () => {
   const addToCalendar = async (ticket: FormattedTicket) => {
-    if (ticket.paymentStatus !== 'confirmed') {
+    if (ticket.paymentStatus !== 'approved') {
       Alert.alert(
         'Action non disponible',
         'Cette fonctionnalité est disponible uniquement pour les billets confirmés.',
