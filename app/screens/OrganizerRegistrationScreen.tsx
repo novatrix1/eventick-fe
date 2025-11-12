@@ -1,23 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import {
-    View,
-    Text,
-    ScrollView,
-    TouchableOpacity,
-    TextInput,
-    SafeAreaView,
-    Image,
-    Alert
-} from 'react-native';
+import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { router } from 'expo-router';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    Image,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const API_URL = "https://eventick.onrender.com";
+
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
 
 const bankLogos = {
     bankily: require('@/assets/payment/bankily.png'),
@@ -27,6 +31,15 @@ const bankLogos = {
 };
 
 const socialMediaTypes = ['facebook', 'instagram', 'twitter', 'linkedin', 'tiktok'];
+
+// Fonction de mapping des types d'organisateur
+const mapOrganizerTypeToBackend = (frontendType: string): string => {
+    const mapping: { [key: string]: string } = {
+        'entreprise': 'organization',
+        'particulier': 'particular'
+    };
+    return mapping[frontendType] || 'organizer';
+};
 
 const OrganizerRegistrationScreen = () => {
     const [currentStep, setCurrentStep] = useState(1);
@@ -58,6 +71,7 @@ const OrganizerRegistrationScreen = () => {
                 const token = await AsyncStorage.getItem("token");
                 if (!token) return;
 
+                
                 const userRes = await axios.get(`${API_URL}/api/users/profile`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
@@ -102,7 +116,7 @@ const OrganizerRegistrationScreen = () => {
 
             let location = await Location.getCurrentPositionAsync({
                 accuracy: Location.Accuracy.Highest,
-                timeout: 15000,
+               // timeout: 15000,
             });
 
             let addressList = await Location.reverseGeocodeAsync({
@@ -227,11 +241,14 @@ const OrganizerRegistrationScreen = () => {
 
             const formDataToSend = new FormData();
             
+            // Utiliser le mapping pour convertir le type d'organisateur
+            const backendOrganizerType = mapOrganizerTypeToBackend(formData.organizerType);
+            
             const formFields = {
                 companyName: formData.companyName,
                 address: formData.address,
                 phone: formData.phone,
-                type: formData.organizerType,
+                type: backendOrganizerType, // Utiliser le type mappé
                 banque: formData.bank, 
                 rib: formData.rib,
                 website: formData.website || "",
@@ -263,6 +280,10 @@ const OrganizerRegistrationScreen = () => {
                 type: 'image/jpeg',
             } as any);
             
+
+            console.log("Données du registration en tant qu'organisateur:", formDataToSend);
+            console.log("Type d'organisateur mappé:", backendOrganizerType);
+            
             const response = await axios.post(`${API_URL}/api/organizers/register`, formDataToSend, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -272,7 +293,7 @@ const OrganizerRegistrationScreen = () => {
             });
 
             Alert.alert("Succès", response.data.message || "Demande soumise avec succès !");
-            router.replace("/");
+            router.replace("/(tabs-client)/home");
 
         } catch (err: any) {
             console.error("Erreur soumission:", {
@@ -416,7 +437,7 @@ const OrganizerRegistrationScreen = () => {
                             <View className="mb-5">
                                 <Text className="text-gray-400 text-lg mb-2">Type d'organisateur</Text>
                                 <View className="flex-row justify-between mb-3">
-                                    {['entreprise', 'association', 'particulier'].map((type) => (
+                                    {['entreprise', 'particulier'].map((type) => (
                                         <TouchableOpacity
                                             key={type}
                                             className={`py-4 px-4 rounded-xl flex-1 mx-1 ${formData.organizerType === type ? 'bg-[#ec673b]' : 'bg-white/10'}`}

@@ -10,28 +10,63 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions, BarcodeScanningResult, FlashMode } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Constants from 'expo-constants';
+import { router } from 'expo-router';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
+// Define types for navigation and props
+type RootStackParamList = {
+  // Add your actual screen names here based on your navigation structure
+  // Example:
+  // home: undefined;
+  // events: undefined;
+  // profile: undefined;
+};
+
+const [flashMode, setFlashMode] = useState<FlashMode>('off' as FlashMode);
+
+type ScanScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+interface ScanScreenProps {
+  navigation: ScanScreenNavigationProp;
+}
+
+interface TicketData {
+  ticketRef: string;
+  ticketNumber: string;
+  event: string;
+  usedAt?: string;
+}
+
+interface ValidationData {
+  message: string;
+  ticket?: TicketData;
+}
 
 const { width, height } = Dimensions.get('window');
 
-const ScanScreen = ({ navigation }) => {
-  const [hasPermission, setHasPermission] = useState(null);
-  const [scanResult, setScanResult] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [flashMode, setFlashMode] = useState('off');
+const ScanScreen: React.FC<ScanScreenProps> = ({ navigation }) => {
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [scanResult, setScanResult] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [flashMode, setFlashMode] = useState<FlashMode>('off');
   const [permission, requestPermission] = useCameraPermissions();
-  const [validationModalVisible, setValidationModalVisible] = useState(false);
-  const [validationData, setValidationData] = useState(null);
+  const [validationModalVisible, setValidationModalVisible] = useState<boolean>(false);
+  const [validationData, setValidationData] = useState<ValidationData | null>(null);
   
-  const cameraRef = useRef(null);
+  const cameraRef = useRef<CameraView>(null);
   const scanLineAnim = useRef(new Animated.Value(0)).current;
 
+  // Animation pour la ligne de scan
   useEffect(() => {
-    Animated.loop(
+    const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(scanLineAnim, {
           toValue: 1,
@@ -44,21 +79,27 @@ const ScanScreen = ({ navigation }) => {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    
+    animation.start();
 
     return () => {
-      scanLineAnim.stopAnimation();
+      animation.stop();
     };
-  }, []);
+  }, [scanLineAnim]);
 
+  // Demande de permission pour la caméra
   useEffect(() => {
-    (async () => {
+    const getCameraPermission = async () => {
       const { status } = await requestPermission();
       setHasPermission(status === 'granted');
-    })();
-  }, []);
+    };
 
-  const validateTicket = async (encryptedData) => {
+    getCameraPermission();
+  }, [requestPermission]);
+
+  // Validation du ticket via l'API
+  const validateTicket = async (encryptedData: string): Promise<void> => {
     setIsLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
@@ -69,7 +110,7 @@ const ScanScreen = ({ navigation }) => {
         return;
       }
 
-      const response = await fetch('https://eventick.onrender.com/api/tickets/scan', {
+      const response = await fetch(`${API_URL}/api/tickets/scan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,7 +119,7 @@ const ScanScreen = ({ navigation }) => {
         body: JSON.stringify({ encryptedData }),
       });
 
-      const data = await response.json();
+      const data: ValidationData = await response.json();
 
       if (response.ok) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -103,20 +144,31 @@ const ScanScreen = ({ navigation }) => {
     }
   };
 
-  const handleBarCodeScanned = ({ data }) => {
+  // Gestion du scan de code QR
+  const handleBarCodeScanned = ({ data }: BarcodeScanningResult): void => {
+    if (isLoading) return;
+    
     const cleanData = data.trim();
+    setScanResult(cleanData);
     validateTicket(cleanData);
   };
 
-  const toggleFlash = () => {
-    setFlashMode(flashMode === 'off' ? 'torch' : 'off');
-  };
+  // Basculer le flash
+  
+const toggleFlash = () => {
+  setFlashMode(current =>
+    (current === 'off' ? 'torch' : 'off') as FlashMode
+  );
+};
 
-  const closeValidationModal = () => {
+  // Fermer le modal de validation
+  const closeValidationModal = (): void => {
     setValidationModalVisible(false);
     setValidationData(null);
+    setScanResult(null);
   };
 
+  // Écrans d'état pour les permissions
   if (hasPermission === null) {
     return (
       <View style={styles.loadingContainer}>
@@ -127,6 +179,7 @@ const ScanScreen = ({ navigation }) => {
           end={{ x: 0.9, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
+        <ActivityIndicator size="large" color="#68f2f4" />
         <Text style={styles.loadingText}>Demande d'autorisation pour la caméra...</Text>
       </View>
     );
@@ -142,7 +195,7 @@ const ScanScreen = ({ navigation }) => {
           end={{ x: 0.9, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <Ionicons name="camera-off" size={64} color="white" />
+        <Ionicons name="camera-outline" size={64} color="white" />
         <Text style={styles.errorTitle}>Accès à la caméra refusé</Text>
         <Text style={styles.errorSubtitle}>
           Veuillez autoriser l'accès à la caméra dans les paramètres de votre appareil
@@ -167,9 +220,10 @@ const ScanScreen = ({ navigation }) => {
         style={StyleSheet.absoluteFill}
       />
       
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
-          onPress={() => navigation.goBack()}
+          onPress={() => router.back()}
           style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={24} color="white" />
@@ -178,16 +232,20 @@ const ScanScreen = ({ navigation }) => {
         <View style={styles.headerRight} />
       </View>
 
+      {/* Zone du scanner */}
       <View style={styles.scannerContainer}>
         <View style={styles.cameraWrapper}>
           <CameraView
             ref={cameraRef}
             style={styles.camera}
-            onBarcodeScanned={isLoading ? undefined : handleBarCodeScanned}
-            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-            flashMode={flashMode}
+            onBarcodeScanned={handleBarCodeScanned}
+            barcodeScannerSettings={{ 
+              barcodeTypes: ['qr', 'pdf417', 'aztec', 'codabar'] 
+            }}
+            flash={flashMode}
           />
           
+          {/* Overlay avec cadre de scan */}
           <View style={styles.overlay}>
             <View style={styles.topOverlay}>
               <Text style={styles.overlayText}>Positionnez le QR code dans le cadre</Text>
@@ -195,11 +253,13 @@ const ScanScreen = ({ navigation }) => {
             
             <View style={styles.middleOverlay}>
               <View style={styles.focusBox}>
+                {/* Coins du cadre */}
                 <View style={[styles.corner, styles.cornerTopLeft]} />
                 <View style={[styles.corner, styles.cornerTopRight]} />
                 <View style={[styles.corner, styles.cornerBottomLeft]} />
                 <View style={[styles.corner, styles.cornerBottomRight]} />
                 
+                {/* Ligne de scan animée */}
                 <Animated.View 
                   style={[
                     styles.scanLine,
@@ -230,6 +290,7 @@ const ScanScreen = ({ navigation }) => {
             </View>
           </View>
           
+          {/* Overlay de chargement */}
           {isLoading && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color="#ec673b" />
@@ -239,6 +300,7 @@ const ScanScreen = ({ navigation }) => {
         </View>
       </View>
 
+      {/* Modal de résultat de validation */}
       <Modal
         visible={validationModalVisible}
         transparent
@@ -256,34 +318,34 @@ const ScanScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {validationData && (
+            {validationData?.ticket && (
               <View style={styles.validationDetails}>
                 <View style={styles.detailRow}>
-                  <Ionicons name="ticket" size={20} color="#ec673b" />
+                  <Ionicons name="ticket-outline" size={20} color="#ec673b" />
                   <Text style={styles.detailText}>
-                    Référence: {validationData.ticket?.ticketRef}
+                    Référence: {validationData.ticket.ticketRef}
                   </Text>
                 </View>
                 
                 <View style={styles.detailRow}>
-                  <Ionicons name="hash" size={20} color="#ec673b" />
+                  <Ionicons name="pricetag-outline" size={20} color="#ec673b" />
                   <Text style={styles.detailText}>
-                    Numéro: {validationData.ticket?.ticketNumber}
+                    Numéro: {validationData.ticket.ticketNumber}
                   </Text>
                 </View>
                 
                 <View style={styles.detailRow}>
-                  <Ionicons name="calendar" size={20} color="#ec673b" />
+                  <Ionicons name="calendar-outline" size={20} color="#ec673b" />
                   <Text style={styles.detailText}>
-                    Événement: {validationData.ticket?.event}
+                    Événement: {validationData.ticket.event}
                   </Text>
                 </View>
                 
-                {validationData.ticket?.usedAt && (
+                {validationData.ticket.usedAt && (
                   <View style={styles.detailRow}>
-                    <Ionicons name="time" size={20} color="#ec673b" />
+                    <Ionicons name="time-outline" size={20} color="#ec673b" />
                     <Text style={styles.detailText}>
-                      Utilisé le: {new Date(validationData.ticket.usedAt).toLocaleString()}
+                      Utilisé le: {new Date(validationData.ticket.usedAt).toLocaleString('fr-FR')}
                     </Text>
                   </View>
                 )}
@@ -318,6 +380,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     marginTop: 16,
+    textAlign: 'center',
   },
   errorTitle: {
     color: 'white',
@@ -332,17 +395,24 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
     paddingHorizontal: 20,
+    lineHeight: 20,
   },
   permissionButton: {
     marginTop: 20,
     backgroundColor: '#ec673b',
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   permissionButtonText: {
     color: 'white',
     fontWeight: 'bold',
+    fontSize: 16,
   },
   header: {
     paddingTop: 60,
@@ -354,6 +424,8 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerTitle: {
     fontSize: 20,
@@ -394,6 +466,7 @@ const styles = StyleSheet.create({
   middleOverlay: {
     justifyContent: 'center',
     alignItems: 'center',
+    flex: 1,
   },
   focusBox: {
     width: 250,
@@ -403,6 +476,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: 'transparent',
     position: 'relative',
+    overflow: 'hidden',
   },
   corner: {
     position: 'absolute',
@@ -412,29 +486,29 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   cornerTopLeft: {
-    top: -4,
-    left: -4,
+    top: -2,
+    left: -2,
     borderTopWidth: 4,
     borderLeftWidth: 4,
     borderTopLeftRadius: 6,
   },
   cornerTopRight: {
-    top: -4,
-    right: -4,
+    top: -2,
+    right: -2,
     borderTopWidth: 4,
     borderRightWidth: 4,
     borderTopRightRadius: 6,
   },
   cornerBottomLeft: {
-    bottom: -4,
-    left: -4,
+    bottom: -2,
+    left: -2,
     borderBottomWidth: 4,
     borderLeftWidth: 4,
     borderBottomLeftRadius: 6,
   },
   cornerBottomRight: {
-    bottom: -4,
-    right: -4,
+    bottom: -2,
+    right: -2,
     borderBottomWidth: 4,
     borderRightWidth: 4,
     borderBottomRightRadius: 6,
@@ -445,6 +519,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#68f2f4',
     borderRadius: 2,
     position: 'absolute',
+    left: 0,
   },
   bottomOverlay: {
     width: '100%',
@@ -462,6 +537,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#68f2f4',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -474,18 +554,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
-    width: '90%',
+    width: '100%',
     maxWidth: 400,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 20,
   },
   modalTitle: {
@@ -493,9 +579,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     flex: 1,
     marginRight: 10,
+    color: '#333',
   },
   validationDetails: {
     marginBottom: 20,
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 12,
   },
   detailRow: {
     flexDirection: 'row',
@@ -505,12 +595,19 @@ const styles = StyleSheet.create({
   detailText: {
     marginLeft: 10,
     fontSize: 16,
+    color: '#333',
+    flex: 1,
   },
   closeButton: {
     backgroundColor: '#ec673b',
-    padding: 12,
+    padding: 16,
     borderRadius: 8,
     alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   closeButtonText: {
     color: 'white',
@@ -520,3 +617,4 @@ const styles = StyleSheet.create({
 });
 
 export default ScanScreen;
+

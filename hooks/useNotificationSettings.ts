@@ -4,7 +4,9 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NotificationSettings } from '../types';
 
-const API_URL = "https://eventick.onrender.com";
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
 
 export const useNotificationSettings = () => {
   const [settings, setSettings] = useState<NotificationSettings>({

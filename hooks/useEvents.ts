@@ -4,8 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiEvent, Event, Category } from '../types';
 import { transformApiEventToEvent } from '../utils/eventTransformer';
 
+import Constants from 'expo-constants';
 
-const API_URL = "https://eventick.onrender.com";
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
 
 export const useEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -33,11 +34,11 @@ export const useEvents = () => {
       });
 
       const apiEvents: ApiEvent[] = response.data;
-      const transformedEvents: Event[] = apiEvents.map(transformApiEventToEvent);
-
-      //console.log("Voici les données recupérés : ", transformedEvents);
-
-
+      
+      // Cast pour résoudre les conflits de types temporairement
+      const transformedEvents: Event[] = apiEvents.map(event => 
+        transformApiEventToEvent(event as any)
+      );
 
       setEvents(transformedEvents);
 
@@ -50,9 +51,8 @@ export const useEvents = () => {
             .slice(0, 3);
         }
       });
-      //console.log("Voici les données par categorie : ", eventsByCategory);
-      setCategoryEvents(eventsByCategory);
 
+      setCategoryEvents(eventsByCategory);
       setError(null);
     } catch (err) {
       console.error('Erreur lors de la récupération des événements:', err);

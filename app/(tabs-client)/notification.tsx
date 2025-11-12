@@ -4,7 +4,6 @@ import {
   View, 
   ScrollView, 
   FlatList, 
-  SafeAreaView, 
   RefreshControl, 
   Text, 
   ActivityIndicator 
@@ -19,6 +18,7 @@ import NotificationItem from '@/components/NotificationItem';
 import SettingsModal from '@/components/SettingsModal';
 import EmptyState from '@/components/EmptyState';
 import InfoBanner from '@/components/InfoBanner';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const NotificationsScreen = () => {
   const [showSettings, setShowSettings] = useState(false);

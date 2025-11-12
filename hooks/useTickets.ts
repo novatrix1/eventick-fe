@@ -4,7 +4,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiResponse, GroupedTickets } from '../types';
 import { formatTickets } from '../utils/ticketUtils';
 
-const API_URL = "https://eventick.onrender.com";
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
 
 export const useTickets = () => {
   const [activeTickets, setActiveTickets] = useState<GroupedTickets>({});

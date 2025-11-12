@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { categories } from "@/constants/categories";
 import * as ImagePicker from 'expo-image-picker';
+import { any } from 'zod';
 
 const TITLE_MAX_LENGTH = 60;
 const DESCRIPTION_MAX_LENGTH = 500;
@@ -59,7 +60,7 @@ const Step1 = memo(({ eventData, setEventData }: Step1Props) => {
       if (!result.canceled && result.assets[0]) {
         const selectedImage = result.assets[0];
 
-        setEventData(prev => ({
+        setEventData((prev : any) => ({
           ...prev,
           image: selectedImage.uri
         }));
@@ -86,7 +87,7 @@ const Step1 = memo(({ eventData, setEventData }: Step1Props) => {
     <TouchableOpacity
       className="p-4 border-b border-white/20 flex-row justify-between items-center active:bg-white/5"
       onPress={() => {
-        setEventData(prev => ({ ...prev, category: item }));
+        setEventData((prev : any) => ({ ...prev, category: item }));
         setModalVisible(false);
         setSearchQuery('');
       }}
@@ -260,7 +261,7 @@ const Step1 = memo(({ eventData, setEventData }: Step1Props) => {
                   placeholder="Nommez votre événement..."
                   placeholderTextColor="#6b7280"
                   value={eventData.title}
-                  onChangeText={text => setEventData(prev => ({ ...prev, title: text }))}
+                  onChangeText={text => setEventData((prev : any) => ({ ...prev, title: text }))}
                   maxLength={TITLE_MAX_LENGTH}
                   returnKeyType="next"
                   onSubmitEditing={() => {
@@ -295,7 +296,7 @@ const Step1 = memo(({ eventData, setEventData }: Step1Props) => {
                   multiline
                   textAlignVertical="top"
                   value={eventData.description}
-                  onChangeText={text => setEventData(prev => ({ ...prev, description: text }))}
+                  onChangeText={text => setEventData((prev : any) => ({ ...prev, description: text }))}
                   maxLength={DESCRIPTION_MAX_LENGTH}
                   returnKeyType="done"
                   onSubmitEditing={Keyboard.dismiss}

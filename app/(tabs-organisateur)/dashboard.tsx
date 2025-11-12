@@ -7,42 +7,85 @@ import { LineChart, PieChart } from 'react-native-chart-kit'
 import * as Haptics from 'expo-haptics'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
 
 interface Event {
-  id: string;
+  _id: string;
   title: string;
   description: string;
+  location: string;
   date: string;
   time: string;
-  location: string;
-  category: string;
-  image: string;
-  status: 'upcoming' | 'ongoing' | 'completed';
-  isActive: boolean;
   totalTickets: number;
   availableTickets: number;
-  tickets: TicketType[];
+  image: string | null;
+  category: string;
+  city: string;
+  organizer: string;
+  isActive: boolean;
+  paymentMethods: string[];
+  createdAt: string;
+  updatedAt: string;
+  ticketsSold: number;
+  revenue: number;
+  tickets: Array<{
+    type: string;
+    price: number;
+    totalTickets: number;
+    availableTickets: number;
+    sold: number;
+    revenue: number;
+    description: string;
+  }>;
+  revenueByType: Array<{
+    type: string;
+    amount: number;
+  }>;
+  salesTimeline: Array<{
+    date: string;
+    ticketsSold: number;
+    revenue: number;
+  }>;
+  paymentMethodsStats: Array<{
+    name: string;
+    transactions: number;
+    amount: number;
+  }>;
+}
+
+interface DashboardStats {
+  totalEvents: number;
   totalRevenue: number;
+  totalTicketsSold: number;
+  upcomingEvents: number;
+  activeEvents: number;
+  completedEvents: number;
+  averageRevenuePerEvent: number;
+  paymentMethodsDistribution: Array<{
+    name: string;
+    value: number;
+    color: string;
+    legendFontColor: string;
+    legendFontSize: number;
+  }>;
+  revenueTimeline: Array<{
+    date: string;
+    revenue: number;
+  }>;
 }
-
-interface TicketType {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  sold: number;
-}
-
 
 const Dashboard = () => {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'ongoing' | 'completed'>('upcoming')
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'active' | 'completed'>('upcoming')
   const screenWidth = Dimensions.get('window').width
   const scrollRef = useRef<ScrollView>(null)
-  const [activeTimeFilter, setActiveTimeFilter] = useState<'day' | 'week' | 'month' | 'year'>('month')
   const [events, setEvents] = useState<Event[]>([])
+  const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+
 
   const fetchEvents = async () => {
     try {
@@ -53,7 +96,7 @@ const Dashboard = () => {
         return;
       }
 
-      const response = await fetch('https://eventick.onrender.com/api/events/organizer/my-events', {
+      const response = await fetch(`${API_URL}/api/events/organizer/my-events`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -66,58 +109,11 @@ const Dashboard = () => {
       }
 
       const data = await response.json();
+      console.log("📊 Events data:", data);
+      setEvents(data);
       
-      const transformedEvents: Event[] = data.map((event: any) => {
-        let status: 'upcoming' | 'ongoing' | 'completed' = 'upcoming';
-        const eventDate = new Date(event.date);
-        const now = new Date();
-        
-        if (event.isActive) {
-          status = eventDate > now ? 'upcoming' : 'completed';
-        } else {
-          status = 'completed';
-        }
-
-        const timeDiff = eventDate.getTime() - now.getTime();
-        const hoursDiff = timeDiff / (1000 * 3600);
-        if (status === 'upcoming' && hoursDiff <= 5 && hoursDiff >= 0) {
-          status = 'ongoing';
-        }
-
-        const tickets: TicketType[] = event.tickets ? event.tickets.map((ticket: any) => ({
-          id: ticket._id || ticket.id,
-          name: ticket.type || ticket.name,
-          price: ticket.price || 0,
-          quantity: ticket.totalTickets || ticket.quantity,
-          sold: (ticket.totalTickets - ticket.availableTickets) || ticket.sold,
-        })) : [];
-
-        return {
-          id: event._id,
-          title: event.title,
-          description: event.description,
-          date: new Date(event.date).toLocaleDateString('fr-FR', { 
-            day: 'numeric', 
-            month: 'short', 
-            year: 'numeric' 
-          }),
-          time: new Date(event.time).toLocaleTimeString('fr-FR', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }),
-          location: event.location,
-          category: event.category,
-          image: event.image,
-          status: status,
-          isActive: event.isActive,
-          totalTickets: event.totalTickets,
-          availableTickets: event.availableTickets,
-          tickets: tickets,
-          totalRevenue: tickets.reduce((total, ticket) => total + (ticket.price * ticket.sold), 0),
-        };
-      });
-
-      setEvents(transformedEvents);
+      // Calculate dashboard stats from events data
+      calculateStats(data);
     } catch (error) {
       console.error('Erreur lors de la récupération des événements:', error);
       Alert.alert("Erreur", "Impossible de charger les événements");
@@ -127,43 +123,99 @@ const Dashboard = () => {
     }
   };
 
+  const calculateStats = (eventsData: Event[]) => {
+    const now = new Date();
+    
+    const totalEvents = eventsData.length;
+    const totalRevenue = eventsData.reduce((sum, event) => sum + (event.revenue || 0), 0);
+    const totalTicketsSold = eventsData.reduce((sum, event) => sum + (event.ticketsSold || 0), 0);
+    
+    const upcomingEvents = eventsData.filter(event => {
+      const eventDate = new Date(event.date);
+      return eventDate > now && event.isActive;
+    }).length;
+    
+    const activeEvents = eventsData.filter(event => event.isActive).length;
+    const completedEvents = eventsData.filter(event => !event.isActive).length;
+    
+    const averageRevenuePerEvent = totalEvents > 0 ? totalRevenue / totalEvents : 0;
+
+    // Calculate payment methods distribution
+    const paymentMethodsData: { [key: string]: number } = {};
+    eventsData.forEach(event => {
+      event.paymentMethodsStats?.forEach(payment => {
+        if (paymentMethodsData[payment.name]) {
+          paymentMethodsData[payment.name] += payment.amount;
+        } else {
+          paymentMethodsData[payment.name] = payment.amount;
+        }
+      });
+    });
+
+    const totalPaymentAmount = Object.values(paymentMethodsData).reduce((sum, amount) => sum + amount, 0);
+    
+    const paymentMethodsDistribution = Object.entries(paymentMethodsData).map(([name, amount], index) => {
+      const colors = ['#4CAF50', '#2196F3', '#FFC107', '#E91E63', '#9C27B0', '#FF5722'];
+      return {
+        name,
+        value: totalPaymentAmount > 0 ? Math.round((amount / totalPaymentAmount) * 100) : 0,
+        color: colors[index % colors.length],
+        legendFontColor: "#fff",
+        legendFontSize: 12
+      };
+    });
+
+    // Calculate revenue timeline from salesTimeline
+    const revenueTimeline = eventsData.flatMap(event => 
+      event.salesTimeline?.map(sale => ({
+        date: new Date(sale.date).toLocaleDateString('fr-FR', { month: 'short' }),
+        revenue: sale.revenue
+      })) || []
+    );
+
+    const dashboardStats: DashboardStats = {
+      totalEvents,
+      totalRevenue,
+      totalTicketsSold,
+      upcomingEvents,
+      activeEvents,
+      completedEvents,
+      averageRevenuePerEvent,
+      paymentMethodsDistribution,
+      revenueTimeline
+    };
+
+    setStats(dashboardStats);
+  };
+
   useEffect(() => {
     fetchEvents();
   }, []);
 
-  const statsData = {
-    totalSales: 1245,
-    ticketsLeft: 320,
-    revenue: 1245000,
-    notifications: [
-      { id: '1', type: 'warning', title: 'Stock faible', message: 'Tournoi de Football: bientôt en rupture de billets', time: 'Il y a 2 heures' },
-      { id: '2', type: 'info', title: 'Vente rapide', message: 'Festival du Désert: 245 billets vendus aujourd\'hui', time: 'Il y a 5 heures' },
-      { id: '3', type: 'success', title: 'Paiement reçu', message: 'Conférence Tech: Nouveau paiement Bankily', time: 'Aujourd\'hui' },
-    ],
-    paymentMethods: [
-      { name: "Bankily", value: 45, color: "#4CAF50", legendFontColor: "#fff", legendFontSize: 12 },
-      { name: "Masrvi", value: 30, color: "#2196F3", legendFontColor: "#fff", legendFontSize: 12 },
-      { name: "Carte bancaire", value: 25, color: "#FFC107", legendFontColor: "#fff", legendFontSize: 12 },
-    ],
-    popularCategories: [
-      { name: "Concerts", value: 35, color: "#E91E63" },
-      { name: "Sports", value: 25, color: "#3F51B5" },
-      { name: "Conférences", value: 20, color: "#009688" },
-      { name: "Festivals", value: 15, color: "#FF9800" },
-      { name: "Religieux", value: 5, color: "#795548" },
-    ]
-  }
+  const getEventStatus = (event: Event): 'upcoming' | 'active' | 'completed' => {
+    const eventDate = new Date(event.date);
+    const now = new Date();
+    
+    if (!event.isActive) {
+      return 'completed';
+    }
+    
+    if (eventDate > now) {
+      return 'upcoming';
+    }
+    
+    // If event date is today or in the past but still active, consider it active
+    const timeDiff = eventDate.getTime() - now.getTime();
+    const hoursDiff = timeDiff / (1000 * 3600);
+    
+    if (hoursDiff <= 24 && hoursDiff >= -24) { // Within 24 hours before and after event time
+      return 'active';
+    }
+    
+    return eventDate > now ? 'upcoming' : 'completed';
+  };
 
-  const chartData = {
-    labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept'],
-    datasets: [
-      {
-        data: [20000, 45000, 28000, 80000, 99000, 124500, 155000, 142000, 180000],
-        color: (opacity = 1) => `rgba(104, 242, 244, ${opacity})`,
-        strokeWidth: 3
-      }
-    ],
-  }
+  const filteredEvents = events.filter(event => getEventStatus(event) === activeTab);
 
   const chartConfig = {
     backgroundColor: '#001215',
@@ -189,37 +241,13 @@ const Dashboard = () => {
     propsForHorizontalLabels: {
       dy: 5
     }
-  }
+  };
 
-  const filteredEvents = events.filter(event => event.status === activeTab)
-
-  const handleTabPress = (tab: 'upcoming' | 'ongoing' | 'completed') => {
-    setActiveTab(tab)
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    scrollRef.current?.scrollTo({ y: 0, animated: true })
-  }
-
-  const handleTimeFilter = (filter: 'day' | 'week' | 'month' | 'year') => {
-    setActiveTimeFilter(filter)
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-  }
-
-  const getTimeFilterStats = () => {
-    switch (activeTimeFilter) {
-      case 'day':
-        return { sales: 142, revenue: 425000 }
-      case 'week':
-        return { sales: 745, revenue: 2235000 }
-      case 'month':
-        return { sales: 1245, revenue: 3735000 }
-      case 'year':
-        return { sales: 8420, revenue: 25260000 }
-      default:
-        return { sales: 1245, revenue: 3735000 }
-    }
-  }
-
-  const timeStats = getTimeFilterStats()
+  const handleTabPress = (tab: 'upcoming' | 'active' | 'completed') => {
+    setActiveTab(tab);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -262,158 +290,137 @@ const Dashboard = () => {
           </View>
           <TouchableOpacity
             className="bg-teal-400/10 p-2 rounded-full"
+            onPress={() => router.push('/organizer/notifications')}
           >
             <Ionicons name="notifications" size={24} color="#68f2f4" />
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.duration(500).delay(50)}
-          className="mb-4"
-        >
-          <View className="flex-row justify-between bg-teal-400/10 rounded-xl p-1">
-            {['day', 'week', 'month', 'year'].map((filter) => (
-              <TouchableOpacity
-                key={filter}
-                className={`flex-1 py-2 rounded-xl ${activeTimeFilter === filter ? 'bg-teal-400' : ''}`}
-                onPress={() => handleTimeFilter(filter as any)}
-              >
-                <Text className={`text-center text-xs font-medium ${activeTimeFilter === filter ? 'text-gray-900' : 'text-teal-400'}`}>
-                  {filter === 'day' ? 'Aujourd\'hui' :
-                    filter === 'week' ? 'Cette semaine' :
-                      filter === 'month' ? 'Ce mois' : 'Cette année'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Animated.View>
-
+        {/* Statistiques Globales */}
         <Animated.View
           entering={FadeInDown.duration(500).delay(100)}
           className="mb-8"
         >
           <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-white text-xl font-bold">Statistiques</Text>
-            <Text className="text-teal-400 text-sm">
-              {activeTimeFilter === 'day' ? 'Aujourd\'hui' :
-                activeTimeFilter === 'week' ? '7 derniers jours' :
-                  activeTimeFilter === 'month' ? '30 derniers jours' : '12 derniers mois'}
-            </Text>
+            <Text className="text-white text-xl font-bold">Statistiques Globales</Text>
           </View>
 
           <View className="flex-row flex-wrap justify-between">
             <View className="bg-teal-400/10 p-4 rounded-xl w-[48%] mb-3" style={styles.statCard}>
               <View className="flex-row items-center">
+                <Ionicons name="calendar" size={20} color="#68f2f4" />
+                <Text className="text-white font-bold ml-2">{stats?.totalEvents || 0}</Text>
+              </View>
+              <Text className="text-teal-400 text-sm mt-2">Événements totaux</Text>
+            </View>
+
+            <View className="bg-teal-400/10 p-4 rounded-xl w-[48%] mb-3" style={styles.statCard}>
+              <View className="flex-row items-center">
+                <MaterialIcons name="attach-money" size={20} color="#68f2f4" />
+                <Text className="text-white font-bold ml-2">{stats?.totalRevenue?.toLocaleString() || 0} MRO</Text>
+              </View>
+              <Text className="text-teal-400 text-sm mt-2">Revenus totaux</Text>
+            </View>
+
+            <View className="bg-teal-400/10 p-4 rounded-xl w-[48%] mb-3" style={styles.statCard}>
+              <View className="flex-row items-center">
                 <Ionicons name="ticket" size={20} color="#68f2f4" />
-                <Text className="text-white font-bold ml-2">{timeStats.sales}</Text>
+                <Text className="text-white font-bold ml-2">{stats?.totalTicketsSold || 0}</Text>
               </View>
               <Text className="text-teal-400 text-sm mt-2">Billets vendus</Text>
             </View>
 
             <View className="bg-teal-400/10 p-4 rounded-xl w-[48%] mb-3" style={styles.statCard}>
               <View className="flex-row items-center">
-                <MaterialIcons name="attach-money" size={20} color="#68f2f4" />
-                <Text className="text-white font-bold ml-2">{timeStats.revenue.toLocaleString()} MRO</Text>
+                <FontAwesome5 name="chart-line" size={16} color="#68f2f4" />
+                <Text className="text-white font-bold ml-2">{stats?.averageRevenuePerEvent?.toLocaleString() || 0} MRO</Text>
               </View>
-              <Text className="text-teal-400 text-sm mt-2">Revenus</Text>
-            </View>
-
-            <View className="bg-teal-400/10 p-4 rounded-xl w-[48%] mb-3" style={styles.statCard}>
-              <View className="flex-row items-center">
-                <Ionicons name="people" size={20} color="#68f2f4" />
-                <Text className="text-white font-bold ml-2">78%</Text>
-              </View>
-              <Text className="text-teal-400 text-sm mt-2">Taux de remplissage</Text>
-            </View>
-
-            <View className="bg-teal-400/10 p-4 rounded-xl w-[48%] mb-3" style={styles.statCard}>
-              <View className="flex-row items-center">
-                <FontAwesome5 name="user-check" size={16} color="#68f2f4" />
-                <Text className="text-white font-bold ml-2">92%</Text>
-              </View>
-              <Text className="text-teal-400 text-sm mt-2">Taux de présence</Text>
+              <Text className="text-teal-400 text-sm mt-2">Revenu moyen/événement</Text>
             </View>
           </View>
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.duration(500).delay(200)}
-          className="mb-8"
-        >
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-white text-xl font-bold">Évolution des ventes</Text>
-            <TouchableOpacity>
-              <Text className="text-teal-400 text-sm">Voir détails</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Graphique des revenus */}
+        {stats?.revenueTimeline && stats.revenueTimeline.length > 0 && (
+          <Animated.View
+            entering={FadeInDown.duration(500).delay(200)}
+            className="mb-8"
+          >
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-white text-xl font-bold">Évolution des revenus</Text>
+            </View>
 
-          <View className="bg-teal-400/10 rounded-xl p-4">
-            <LineChart
-              data={chartData}
-              width={screenWidth - 48}
-              height={250}
-              yAxisLabel="MRU "
-              yAxisSuffix=""
-              chartConfig={chartConfig}
-              bezier
-              style={{
-                borderRadius: 16,
-                paddingRight: 85,
-                marginLeft: -10,
-              }}
-              withVerticalLines={false}
-              withShadow={true}
-              segments={5}
-              fromZero={true}
-              yLabelsOffset={15}
-              xLabelsOffset={-5}
-            />
-          </View>
+            <View className="bg-teal-400/10 rounded-xl p-4">
+              <LineChart
+                data={{
+                  labels: stats.revenueTimeline.map(item => item.date),
+                  datasets: [{
+                    data: stats.revenueTimeline.map(item => item.revenue),
+                    color: (opacity = 1) => `rgba(104, 242, 244, ${opacity})`,
+                    strokeWidth: 3
+                  }]
+                }}
+                width={screenWidth - 48}
+                height={220}
+                yAxisLabel="MRU "
+                yAxisSuffix=""
+                chartConfig={chartConfig}
+                bezier
+                style={{
+                  borderRadius: 16,
+                  paddingRight: 45,
+                  marginLeft: -10,
+                }}
+                withVerticalLines={false}
+                withShadow={true}
+                segments={5}
+                fromZero={true}
+                yLabelsOffset={15}
+                xLabelsOffset={-5}
+              />
+            </View>
+          </Animated.View>
+        )}
 
-          <View className="flex-row items-center mt-3 ml-2">
-            <View className="w-3 h-3 bg-teal-400 rounded-full mr-2" />
-            <Text className="text-teal-400 text-sm">Revenus mensuels (MRO)</Text>
-          </View>
-        </Animated.View>
+        {/* Moyens de paiement */}
+        {stats?.paymentMethodsDistribution && stats.paymentMethodsDistribution.length > 0 && (
+          <Animated.View
+            entering={FadeInDown.duration(500).delay(250)}
+            className="mb-8"
+          >
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-white text-xl font-bold">Moyens de paiement</Text>
+            </View>
 
-        <Animated.View
-          entering={FadeInDown.duration(500).delay(250)}
-          className="mb-8"
-        >
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-white text-xl font-bold">Moyens de paiement</Text>
-            <TouchableOpacity>
-              <Text className="text-teal-400 text-sm">Voir détails</Text>
-            </TouchableOpacity>
-          </View>
+            <View className="bg-teal-400/10 rounded-xl p-4">
+              <PieChart
+                data={stats.paymentMethodsDistribution}
+                width={screenWidth - 48}
+                height={180}
+                chartConfig={{
+                  color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                }}
+                accessor={"value"}
+                backgroundColor={"transparent"}
+                paddingLeft={"15"}
+                center={[0, 0]}
+                absolute
+                hasLegend
+              />
+            </View>
 
-          <View className="bg-teal-400/10 rounded-xl p-4">
-            <PieChart
-              data={statsData.paymentMethods}
-              width={screenWidth - 48}
-              height={180}
-              chartConfig={{
-                color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-              }}
-              accessor={"value"}
-              backgroundColor={"transparent"}
-              paddingLeft={"15"}
-              center={[0, 0]}
-              absolute
-              hasLegend
-            />
-          </View>
+            <View className="mt-4 flex-row justify-center flex-wrap">
+              {stats.paymentMethodsDistribution.map((method, index) => (
+                <View key={index} className="flex-row items-center mr-4 mb-2">
+                  <View className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: method.color }} />
+                  <Text className="text-white text-xs">{method.name}: {method.value}%</Text>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+        )}
 
-          <View className="mt-4 flex-row justify-center flex-wrap">
-            {statsData.paymentMethods.map((method, index) => (
-              <View key={index} className="flex-row items-center mr-4 mb-2">
-                <View className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: method.color }} />
-                <Text className="text-white text-xs">{method.name}: {method.value}%</Text>
-              </View>
-            ))}
-          </View>
-        </Animated.View>
-
+        {/* Liste des événements */}
         <Animated.View
           entering={FadeInDown.duration(500).delay(350)}
           className="mb-6"
@@ -431,16 +438,16 @@ const Dashboard = () => {
               onPress={() => handleTabPress('upcoming')}
             >
               <Text className={`text-center font-medium ${activeTab === 'upcoming' ? 'text-gray-900' : 'text-teal-400'}`} style={styles.tabText}>
-                À venir
+                À venir ({stats?.upcomingEvents || 0})
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className={`flex-1 py-2 rounded-xl ${activeTab === 'ongoing' ? 'bg-teal-400' : ''}`}
-              onPress={() => handleTabPress('ongoing')}
+              className={`flex-1 py-2 rounded-xl ${activeTab === 'active' ? 'bg-teal-400' : ''}`}
+              onPress={() => handleTabPress('active')}
             >
-              <Text className={`text-center font-medium ${activeTab === 'ongoing' ? 'text-gray-900' : 'text-teal-400'}`} style={styles.tabText}>
-                En cours
+              <Text className={`text-center font-medium ${activeTab === 'active' ? 'text-gray-900' : 'text-teal-400'}`} style={styles.tabText}>
+                Actifs ({stats?.activeEvents || 0})
               </Text>
             </TouchableOpacity>
 
@@ -449,7 +456,7 @@ const Dashboard = () => {
               onPress={() => handleTabPress('completed')}
             >
               <Text className={`text-center font-medium ${activeTab === 'completed' ? 'text-gray-900' : 'text-teal-400'}`} style={styles.tabText}>
-                Terminés
+                Terminés ({stats?.completedEvents || 0})
               </Text>
             </TouchableOpacity>
           </View>
@@ -457,13 +464,13 @@ const Dashboard = () => {
           {filteredEvents.length > 0 ? (
             filteredEvents.map((event, index) => (
               <Animated.View
-                key={event.id}
+                key={event._id}
                 entering={FadeInDown.duration(500).delay(100 * index)}
               >
                 <TouchableOpacity
                   className="bg-white/5 rounded-xl p-4 mb-3"
                   style={styles.eventCard}
-                  onPress={() => router.push(`/EditEvent/[id]`)}
+                  onPress={() => router.push(`/EditEvent/${event._id}`)}
                 >
                   <View className="flex-row">
                     <Image
@@ -475,12 +482,14 @@ const Dashboard = () => {
                         <View className="flex-1">
                           <Text className="text-white font-bold text-base mb-1">{event.title}</Text>
                           <Text className="text-teal-400 text-xs">{event.category}</Text>
-                          <Text className="text-teal-400 text-xs mt-1">{event.date} • {event.time}</Text>
+                          <Text className="text-teal-400 text-xs mt-1">
+                            {new Date(event.date).toLocaleDateString('fr-FR')} • {event.time}
+                          </Text>
                           <Text className="text-gray-400 text-xs mt-1">{event.location}</Text>
                         </View>
 
                         <View className="items-end">
-                          <Text className="text-white font-bold">{event.tickets.reduce((acc, ticket) => acc + ticket.sold, 0)}/{event.totalTickets}</Text>
+                          <Text className="text-white font-bold">{event.ticketsSold || 0}/{event.totalTickets}</Text>
                           <Text className="text-teal-400 text-xs mt-1">billets vendus</Text>
                         </View>
                       </View>
@@ -488,24 +497,39 @@ const Dashboard = () => {
                       <View className="mt-3">
                         <View className="flex-row justify-between mb-1">
                           <Text className="text-teal-400 text-xs">
-                            {Math.round((event.tickets.reduce((acc, ticket) => acc + ticket.sold, 0) / event.totalTickets) * 100)}% vendus
+                            {Math.round(((event.ticketsSold || 0) / event.totalTickets) * 100)}% vendus
                           </Text>
                           <Text className="text-gray-400 text-xs">
-                            {event.tickets.reduce((acc, ticket) => acc + ticket.sold, 0)}/{event.totalTickets} billets
+                            {event.ticketsSold || 0}/{event.totalTickets} billets
                           </Text>
                         </View>
                         <View className="w-full bg-gray-700 rounded-full h-2.5">
                           <View
                             className="bg-teal-400 h-2.5 rounded-full"
-                            style={{ width: `${(event.tickets.reduce((acc, ticket) => acc + ticket.sold, 0) / event.totalTickets) * 100}%` }}
+                            style={{ width: `${((event.ticketsSold || 0) / event.totalTickets) * 100}%` }}
                           />
                         </View>
                       </View>
 
                       <View className="flex-row justify-between items-center mt-3">
-                        <Text className="text-white font-bold text-sm">{event.totalRevenue.toLocaleString()} MRO</Text>
+                        <Text className="text-white font-bold text-sm">{event.revenue?.toLocaleString() || 0} MRO</Text>
                         <Text className="text-teal-400 text-xs">Revenus générés</Text>
                       </View>
+
+                      {event.tickets && event.tickets.length > 0 && (
+                        <View className="mt-2">
+                          <Text className="text-teal-400 text-xs mb-1">Types de billets:</Text>
+                          <View className="flex-row flex-wrap">
+                            {event.tickets.map((ticket, ticketIndex) => (
+                              <View key={ticketIndex} className="bg-teal-400/20 px-2 py-1 rounded mr-2 mb-1">
+                                <Text className="text-teal-400 text-xs">
+                                  {ticket.type}: {ticket.sold || 0} vendus
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      )}
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -518,7 +542,7 @@ const Dashboard = () => {
             >
               <Ionicons name="calendar" size={48} color="#68f2f4" />
               <Text className="text-white text-center mt-4 text-lg">
-                Aucun événement {activeTab === 'upcoming' ? 'à venir' : activeTab === 'ongoing' ? 'en cours' : 'terminé'}
+                Aucun événement {activeTab === 'upcoming' ? 'à venir' : activeTab === 'active' ? 'actif' : 'terminé'}
               </Text>
               <TouchableOpacity
                 className="mt-4 bg-teal-400 py-2 px-6 rounded-full"
@@ -530,6 +554,7 @@ const Dashboard = () => {
           )}
         </Animated.View>
 
+        {/* Actions rapides */}
         <Animated.View
           entering={FadeInDown.duration(500).delay(400)}
           className="mb-40"
@@ -545,12 +570,13 @@ const Dashboard = () => {
               {
                 icon: 'qr-code',
                 label: 'Scanner QR',
-                action: () => router.push('/organizer/scanner')
+                action: () => router.push('/(tabs-organisateur)/scan')
               },
+            
               {
-                icon: 'cash',
-                label: 'Paiements',
-                action: () => router.push('/organizer/payments')
+                icon: 'settings',
+                label: 'Paramètres',
+                action: () => router.push('/(tabs-organisateur)/profile')
               },
             ].map((item, index) => (
               <TouchableOpacity
@@ -560,7 +586,7 @@ const Dashboard = () => {
                 style={{ minHeight: 100 }}
               >
                 <View className="bg-teal-400 p-3 rounded-full mb-2">
-                  <Ionicons name={item.icon} size={20} color="#001215" />
+                  <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={20} color="#001215" />
                 </View>
                 <Text className="text-white font-medium text-center text-sm">{item.label}</Text>
               </TouchableOpacity>

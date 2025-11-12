@@ -13,12 +13,22 @@ export interface RegisterFormData {
   address: string;
   city: string;
   rib: string;
-  socialMedia: string;
+  bank: string;
+  socialMedia: SocialMediaItem[];
   description: string;
-  cin: string;
-  registerCommerce: string;
+  website: string;
+  contactEmail: string;
+  categories: string;
+  idFront: string | null;
+  idBack: string | null;
 }
 
+
+export interface SocialMediaItem {
+  type: string;
+  url: string;
+  name: string;
+}
 
 
 export interface Organizer {

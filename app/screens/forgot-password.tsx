@@ -8,7 +8,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +17,11 @@ import { router } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import axios from 'axios';
 
-const API_URL = "https://eventick.onrender.com";
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ForgotPasswordScreen = () => {
   const [email, setEmail] = useState('');
@@ -42,7 +45,7 @@ const ForgotPasswordScreen = () => {
           {
             text: 'OK',
             onPress: () => router.push({
-              pathname: 'screens/reset-password',
+              pathname: '/screens/reset-password',
               params: { email }
             })
           }

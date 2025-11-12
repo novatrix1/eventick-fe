@@ -4,7 +4,7 @@ import { useState } from 'react';
 export const useRegisterForm = (initialState: RegisterFormData) => {
   const [formData, setFormData] = useState<RegisterFormData>(initialState);
 
-  const handleInputChange = (field: keyof RegisterFormData, value: string) => {
+  const handleInputChange = (field: keyof RegisterFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 

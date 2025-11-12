@@ -8,7 +8,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,8 +17,14 @@ import { Link, router } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const API_URL = "https://eventick.onrender.com";
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
+console.log("L'api est : ",API_URL)
+
 
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -38,7 +43,7 @@ const LoginScreen = () => {
     const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
     const { token, user } = response.data;
 
-    console.log("Réponse login:", response.data);
+    //console.log("Réponse login:", response.data);
 
     await AsyncStorage.setItem("token", token);
 
@@ -59,8 +64,8 @@ const LoginScreen = () => {
           );
           router.replace("/(tabs-client)/home");
         }
-      } catch (err) {
-        console.error("Erreur récupération organisateur:", err.response?.data || err.message);
+      } catch {
+        //console.error("Erreur récupération organisateur:", err.response?.data || err.message);
         Alert.alert("Erreur", "Impossible de récupérer le profil organisateur.");
       }
     } else if (user.role === "user") {
@@ -97,7 +102,7 @@ const LoginScreen = () => {
           >
             <Animated.View entering={FadeInUp.delay(100)} className="items-center mb-12">
               <Image
-                source={require('@/assets/logo.png')}
+                source={require('../../assets/logo.png')}
                 className="w-36 h-36"
                 accessibilityLabel="Logo EventMauritanie"
               />

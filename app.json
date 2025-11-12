@@ -8,13 +8,23 @@
     "scheme": "eventick",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.arsprod01.eventick",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Allow Eventick to access your camera.",
+        "NSMicrophoneUsageDescription": "Allow Eventick to access your microphone."
       }
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -27,28 +37,15 @@
       ],
       "package": "com.arsprod01.eventick"
     },
+
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+
     "plugins": [
       "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ],
-      [
-        "expo-barcode-scanner",
-        {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access camera."
-        }
-      ],
       [
         "expo-camera",
         {
@@ -56,18 +53,21 @@
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
           "recordAudioAndroid": true
         }
-      ],
-      "expo-web-browser"
+      ]
     ],
+
     "experiments": {
       "typedRoutes": true
     },
+
     "extra": {
+      "API_URL": "https://eventick.onrender.com",
       "router": {},
       "eas": {
         "projectId": "df5f7862-5d9d-4016-860e-fc89b46af182"
       }
     },
+
     "owner": "arsprod2001"
   }
 }

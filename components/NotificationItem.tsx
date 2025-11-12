@@ -86,7 +86,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       >
         <View className="flex-row">
           <View className="mr-3">
-            <Ionicons name={iconName} size={24} color={iconColor} />
+            <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={24} color={iconColor} />
             {isUnread && (
               <View className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full" />
             )}

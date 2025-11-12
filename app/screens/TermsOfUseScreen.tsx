@@ -1,7 +1,9 @@
 import React from "react";
-import { Text, ScrollView, SafeAreaView } from "react-native";
+import { Text, ScrollView } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import BackgroundWrapper from "@/components/BackgroundWrapper";
+
+import { SafeAreaView } from "react-native-safe-area-context";
 
 
 const termsText = `

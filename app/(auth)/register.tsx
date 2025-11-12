@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, KeyboardAvoidingView, Platform, SafeAreaView, TouchableOpacity, Text, Alert, Image } from 'react-native';
+import { View, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity, Text, Alert, Image } from 'react-native';
 import { Link, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,10 +9,12 @@ import OtpModal from '@/components/OtpModal';
 import UserTypeSelection from '@/components/UserTypeSelection';
 import ClientRegisterForm from '@/components/ClientRegisterForm';
 import OrganizerStep1Form from '@/components/OrganizerStep1Form';
-import OrganizerStep2Form from '@/components/OrganizerStep2Form';
+import OrganizerProfessionalInfo from '@/components/OrganizerProfessionalInfo';
 import { useRegisterForm } from '@/hooks/useRegisterForm';
 import { useAuthApi } from '@/hooks/useAuthApi';
 import { UserType, RegisterFormData } from '@/types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const initialFormData: RegisterFormData = {
   fullName: '',
@@ -20,14 +22,18 @@ const initialFormData: RegisterFormData = {
   phone: '',
   password: '',
   companyName: '',
-  organizerType: 'particulier',
+  organizerType: 'entreprise',
   address: '',
   city: '',
   rib: '',
-  socialMedia: '',
+  bank: '',
+  socialMedia: [{ type: 'facebook', url: '', name: '' }],
   description: '',
-  cin: '',
-  registerCommerce: '',
+  website: '',
+  contactEmail: '',
+  categories: '',
+  idFront: null,
+  idBack: null,
 };
 
 const RegisterScreen = () => {
@@ -71,29 +77,75 @@ const RegisterScreen = () => {
 
   const handleOrganizerRegistration = async () => {
     try {
+      // Connexion pour obtenir le token
       const loginRes = await loginUser({
         email: formData.email,
         password: formData.password,
       });
 
-      if (loginRes && loginRes.token) {
-        await registerOrganizer(
-          {
-            companyName: formData.companyName,
-            address: formData.address,
-            phone: formData.phone,
-            type: formData.organizerType,
-            socialMedia: formData.socialMedia,
-            description: formData.description,
-            contactEmail: formData.email,
-            categories: [],
-          },
-          loginRes.token
-        );
-
-        Alert.alert("Succès", "Compte organisateur créé !");
-        router.replace("/(tabs-organisateur)/dashboard");
+      if (!loginRes || !loginRes.token) {
+        throw new Error("Échec de la connexion pour obtenir le token");
       }
+
+      // Sauvegarder le token
+      await AsyncStorage.setItem("token", loginRes.token);
+
+      const formDataToSend = new FormData();
+      
+      // Mapper les types français vers anglais pour la base de données
+      const organizerTypeMapping: { [key: string]: string } = {
+        'entreprise': 'organization',
+        'particulier': 'particular'
+      };
+
+      const backendOrganizerType = organizerTypeMapping[formData.organizerType] || 'organizer';
+      
+      const formFields = {
+        companyName: formData.companyName,
+        address: formData.address,
+        phone: formData.phone,
+        type: backendOrganizerType,
+        banque: formData.bank, 
+        rib: formData.rib,
+        website: formData.website || "",
+        description: formData.description || "",
+        contactEmail: formData.contactEmail,
+        categories: JSON.stringify(formData.categories.split(",").map(cat => cat.trim()).filter(cat => cat !== "")),
+        socialMedia: JSON.stringify(formData.socialMedia
+          .filter(item => item.url.trim() !== "")
+          .map(item => ({
+            type: item.type,
+            url: item.url,
+            name: item.name || formData.companyName,
+          })))
+      };
+
+      Object.entries(formFields).forEach(([key, value]) => {
+        formDataToSend.append(key, value);
+      });
+
+      if (formData.idFront) {
+        formDataToSend.append('idFront', {
+          uri: formData.idFront,
+          name: 'id_front.jpg',
+          type: 'image/jpeg',
+        } as any);
+      }
+
+      if (formData.idBack) {
+        formDataToSend.append('idBack', {
+          uri: formData.idBack,
+          name: 'id_back.jpg',
+          type: 'image/jpeg',
+        } as any);
+      }
+
+      await registerOrganizer(formDataToSend, loginRes.token);
+
+      Alert.alert("Succès", "Demande soumise avec succès ! En attente de vérification.");
+      // Redirection vers la page d'accueil client en attendant la vérification
+      router.replace("/(auth)/login");
+
     } catch (error) {
       console.error("Erreur lors de l'inscription organisateur", error);
       throw error;
@@ -134,11 +186,27 @@ const RegisterScreen = () => {
         Alert.alert("Succès", res.message);
         setShowOtpModal(false);
 
-        // Redirection après vérification
-        if (userType === "client") {
+        // Connexion automatique après vérification OTP
+        try {
+          const loginRes = await loginUser({
+            email: formData.email,
+            password: formData.password,
+          });
+
+          if (loginRes && loginRes.token) {
+            await AsyncStorage.setItem("token", loginRes.token);
+            
+            // Redirection selon le type d'utilisateur
+            if (userType === "client") {
+              router.replace("/(tabs-client)/home");
+            } else if (userType === "organizer") {
+              setOrganizerStep(2);
+            }
+          }
+        } catch (loginError) {
+          console.error("Erreur lors de la connexion automatique", loginError);
+          // Redirection vers login en cas d'erreur
           router.replace("/login");
-        } else if (userType === "organizer") {
-          setOrganizerStep(2);
         }
       }
     } catch (error) {
@@ -191,7 +259,7 @@ const RegisterScreen = () => {
       );
     } else {
       return (
-        <OrganizerStep2Form
+        <OrganizerProfessionalInfo
           formData={formData}
           loading={loading}
           onInputChange={handleInputChange}

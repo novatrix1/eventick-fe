@@ -204,7 +204,7 @@ const OrganizerProfileScreen = () => {
             <View className="flex-row">
               {organizerData.socials.facebook && (
                 <TouchableOpacity
-                  onPress={() => openSocialLink(organizerData.socials.facebook)}
+                  onPress={() => openSocialLink(organizerData.socials!.facebook)}
                   activeOpacity={0.7}
                   accessibilityLabel="Facebook"
                   style={{ marginRight: 16 }}
@@ -214,7 +214,7 @@ const OrganizerProfileScreen = () => {
               )}
               {organizerData.socials.twitter && (
                 <TouchableOpacity
-                  onPress={() => openSocialLink(organizerData.socials.twitter)}
+                  onPress={() => openSocialLink(organizerData.socials!.twitter)}
                   activeOpacity={0.7}
                   accessibilityLabel="Twitter"
                   style={{ marginRight: 16 }}
@@ -224,7 +224,7 @@ const OrganizerProfileScreen = () => {
               )}
               {organizerData.socials.instagram && (
                 <TouchableOpacity
-                  onPress={() => openSocialLink(organizerData.socials.instagram)}
+                  onPress={() => openSocialLink(organizerData.socials!.instagram)}
                   activeOpacity={0.7}
                   accessibilityLabel="Instagram"
                   style={{ marginRight: 16 }}
@@ -234,7 +234,7 @@ const OrganizerProfileScreen = () => {
               )}
               {organizerData.socials.linkedin && (
                 <TouchableOpacity
-                  onPress={() => openSocialLink(organizerData.socials.linkedin)}
+                  onPress={() => openSocialLink(organizerData.socials!.linkedin)}
                   activeOpacity={0.7}
                   accessibilityLabel="LinkedIn"
                 >

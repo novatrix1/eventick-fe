@@ -86,7 +86,7 @@ const OtpModal: React.FC<OtpModalProps> = ({
             {[0, 1, 2, 3, 4, 5].map((index) => (
               <TextInput
                 key={index}
-                ref={(ref) => (inputRefs.current[index] = ref)}
+ref={(ref) => { inputRefs.current[index] = ref; }}
                 className="bg-white/10 text-white text-xl font-bold text-center rounded-xl w-12 h-12"
                 maxLength={1}
                 keyboardType="number-pad"

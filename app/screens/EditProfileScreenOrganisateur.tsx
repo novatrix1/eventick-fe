@@ -6,23 +6,36 @@ import {
   TouchableOpacity,
   Image,
   TextInput,
-  SafeAreaView,
   Alert,
   ActivityIndicator,
   Modal,
 } from "react-native";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import { StatusBar } from "expo-status-bar";
 import BackgroundWrapper from "@/components/BackgroundWrapper";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const API_URL = "https://eventick.onrender.com";
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
 
 const primaryColor = "#ec673b";
 const secondaryColor = "#68f2f4";
+
+interface UserProfile {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  profilePicture?: string;
+  address: string;
+}
 
 interface OrganizerProfile {
   _id: string;
@@ -31,13 +44,14 @@ interface OrganizerProfile {
     name: string;
     email: string;
     phone: string;
+    profilePicture?: string;
   };
   companyName: string;
   address: string;
   isVerified: boolean;
   phone: string;
   type: string;
-  socialMedia: Array<{ platform: string; url: string }>;
+  socialMedia: Array<{ type: string; url: string; name: string }>;
   description: string;
   isActive: boolean;
   verificationStatus: string;
@@ -62,55 +76,110 @@ const EditProfileScreenOrganisateur = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [organizerProfile, setOrganizerProfile] = useState<OrganizerProfile | null>(null);
   
   const [activeSection, setActiveSection] = useState("personal");
   const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [gettingLocation, setGettingLocation] = useState(false);
   
   const [form, setForm] = useState({
+    // User information - from /api/users/profile
     name: "",
     email: "",
-    personalPhone: "",
+    phone: "",
+    address: "",
+    profilePicture: "",
     
+    // Organizer information - from /api/organizers/profile
     companyName: "",
     companyPhone: "",
-    address: "",
-    type: "entreprise",
     contactEmail: "",
     description: "",
     website: "",
+    type: "particular",
     
+    // Social media
     facebook: "",
     instagram: "",
     twitter: "",
     linkedin: "",
+    whatsapp: "",
     
+    // Additional organizer info
     businessHours: "",
     categories: [] as string[],
     banque: "",
     rib: "",
-    
-    notifications: {
-      sales: true,
-      reminders: true,
-      promotions: false,
-      updates: true,
-    },
-    language: "fr",
-    currency: "MRO",
   });
 
-  const [profileImage, setProfileImage] = useState(
-    "https://i.postimg.cc/fLPF4T98/Whats-App-Image-2025-06-27-12-01-22-36d8d6d7.jpg"
-  );
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [newCategory, setNewCategory] = useState("");
 
+  // Upload image to server
+  const uploadImage = async (uri: string) => {
+    try {
+      setUploadingImage(true);
+      const token = await AsyncStorage.getItem("token");
+      if (!token) throw new Error("No token found");
+
+      const formData = new FormData();
+      formData.append('profilePicture', {
+        uri,
+        type: 'image/jpeg',
+        name: 'profile-picture.jpg',
+      } as any);
+
+      const response = await axios.put(`${API_URL}/api/users/profile`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return response.data.profilePicture;
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      throw error;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Fetch user profile
+  const fetchUserProfile = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Erreur", "Vous devez être connecté");
+        router.back();
+        return null;
+      }
+
+      const response = await axios.get(`${API_URL}/api/users/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log("✅ User profile data:", response.data);
+      return response.data.user; // Return user object directly
+    } catch (error: any) {
+      console.error("Erreur chargement profil utilisateur:", error);
+      Alert.alert("Erreur", error.response?.data?.message || "Erreur lors du chargement du profil utilisateur");
+      return null;
+    }
+  };
+
+  // Fetch organizer profile
   const fetchOrganizerProfile = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) {
         Alert.alert("Erreur", "Vous devez être connecté");
         router.back();
-        return;
+        return null;
       }
 
       const response = await axios.get(`${API_URL}/api/organizers/profile`, {
@@ -119,91 +188,177 @@ const EditProfileScreenOrganisateur = () => {
         },
       });
 
-      if (response.data && response.data.organizer) {
-        const profile = response.data.organizer;
-        setOrganizerProfile(profile);
-        
-        let socialMedia = {
-          facebook: "",
-          instagram: "",
-          twitter: "",
-          linkedin: ""
-        };
-
-        if (profile.socialMedia && Array.isArray(profile.socialMedia)) {
-          profile.socialMedia.forEach((social: any) => {
-            if (social && typeof social === 'object') {
-              if (social.platform && social.url) {
-                if (social.platform.toLowerCase().includes('facebook')) socialMedia.facebook = social.url;
-                else if (social.platform.toLowerCase().includes('instagram')) socialMedia.instagram = social.url;
-                else if (social.platform.toLowerCase().includes('twitter')) socialMedia.twitter = social.url;
-                else if (social.platform.toLowerCase().includes('linkedin')) socialMedia.linkedin = social.url;
-              }
-              else if (social.url) {
-                const url = social.url.toLowerCase();
-                if (url.includes('facebook')) socialMedia.facebook = social.url;
-                else if (url.includes('instagram')) socialMedia.instagram = social.url;
-                else if (url.includes('twitter')) socialMedia.twitter = social.url;
-                else if (url.includes('linkedin')) socialMedia.linkedin = social.url;
-              }
-            }
-          });
-        }
-
-        setForm({
-          name: profile.user?.name || "",
-          email: profile.user?.email || "",
-          personalPhone: profile.user?.phone || "",
-          companyName: profile.companyName || "",
-          companyPhone: profile.phone || "",
-          address: profile.address || "",
-          type: profile.type || "entreprise",
-          contactEmail: profile.contactEmail || profile.user?.email || "",
-          description: profile.description || "",
-          website: profile.website || "",
-          ...socialMedia,
-          businessHours: profile.businessHours || "",
-          categories: profile.categories || [],
-          banque: profile.banque || "",
-          rib: profile.rib || "",
-          notifications: {
-            sales: true,
-            reminders: true,
-            promotions: false,
-            updates: true,
-          },
-          language: "fr",
-          currency: "MRO",
-        });
-
-        if (profile.user?.image) {
-          setProfileImage(profile.user.image);
-        }
-      }
+      console.log("✅ Organizer profile data:", response.data);
+      return response.data.organizer;
     } catch (error: any) {
-      console.error("Erreur chargement profil:", error);
-      Alert.alert("Erreur", error.response?.data?.message || "Erreur lors du chargement du profil");
-    } finally {
-      setLoading(false);
+      console.error("Erreur chargement profil organisateur:", error);
+      Alert.alert("Erreur", error.response?.data?.message || "Erreur lors du chargement du profil organisateur");
+      return null;
     }
   };
 
   useEffect(() => {
-    fetchOrganizerProfile();
+    const fetchProfiles = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch both profiles in parallel
+        const [userData, organizerData] = await Promise.all([
+          fetchUserProfile(),
+          fetchOrganizerProfile()
+        ]);
+
+        console.log("📊 Fetched data:", { userData, organizerData });
+
+        // Set user data first
+        if (userData) {
+          setUserProfile(userData);
+          
+          // Auto-fill user information
+          setForm(prev => ({
+            ...prev,
+            name: userData.name || "",
+            email: userData.email || "",
+            phone: userData.phone || "",
+            address: userData.address || "",
+            profilePicture: userData.profilePicture || "",
+          }));
+
+          // Set profile image
+          if (userData.profilePicture) {
+            setProfileImage(userData.profilePicture);
+          } else {
+            setProfileImage("https://i.postimg.cc/fLPF4T98/Whats-App-Image-2025-06-27-12-01-22-36d8d6d7.jpg");
+          }
+        }
+
+        // Then set organizer data
+        if (organizerData) {
+          setOrganizerProfile(organizerData);
+          
+          // Extract social media URLs
+          let socialMedia = {
+            facebook: "",
+            instagram: "",
+            twitter: "",
+            linkedin: "",
+            whatsapp: ""
+          };
+
+          if (organizerData.socialMedia && Array.isArray(organizerData.socialMedia)) {
+            organizerData.socialMedia.forEach((social: any) => {
+              if (social && typeof social === 'object') {
+                if (social.type && social.url) {
+                  const type = social.type.toLowerCase();
+                  if (type.includes('facebook')) socialMedia.facebook = social.url;
+                  else if (type.includes('instagram')) socialMedia.instagram = social.url;
+                  else if (type.includes('twitter')) socialMedia.twitter = social.url;
+                  else if (type.includes('linkedin')) socialMedia.linkedin = social.url;
+                  else if (type.includes('whatsapp')) socialMedia.whatsapp = social.url;
+                }
+              }
+            });
+          }
+
+          // Auto-fill organizer information
+          setForm(prev => ({
+            ...prev,
+            companyName: organizerData.companyName || "",
+            companyPhone: organizerData.phone || "",
+            contactEmail: organizerData.contactEmail || userData?.email || "",
+            description: organizerData.description || "",
+            website: organizerData.website || "",
+            type: organizerData.type || "particular",
+            ...socialMedia,
+            businessHours: organizerData.businessHours || "",
+            categories: organizerData.categories || [],
+            banque: organizerData.banque || "",
+            rib: organizerData.rib || "",
+            // Use organizer address if available, otherwise keep user address
+            address: organizerData.address || prev.address,
+          }));
+
+          // If user data wasn't available, use organizer's user data as fallback
+          if (!userData && organizerData.user) {
+            setForm(prev => ({
+              ...prev,
+              name: organizerData.user.name || prev.name,
+              email: organizerData.user.email || prev.email,
+              phone: organizerData.user.phone || prev.phone,
+              profilePicture: organizerData.user.profilePicture || prev.profilePicture,
+            }));
+
+            if (organizerData.user.profilePicture) {
+              setProfileImage(organizerData.user.profilePicture);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching profiles:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfiles();
   }, []);
 
   const handleChange = (field: string, value: any) => {
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.');
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const addCategory = () => {
+    if (newCategory.trim() && !form.categories.includes(newCategory.trim())) {
       setForm(prev => ({
         ...prev,
-        [parent]: {
-          ...prev[parent as keyof typeof form],
-          [child]: value
-        }
+        categories: [...prev.categories, newCategory.trim()]
       }));
-    } else {
-      setForm(prev => ({ ...prev, [field]: value }));
+      setNewCategory("");
+    }
+  };
+
+  const removeCategory = (categoryToRemove: string) => {
+    setForm(prev => ({
+      ...prev,
+      categories: prev.categories.filter(cat => cat !== categoryToRemove)
+    }));
+  };
+
+  // Get current location
+  const getCurrentLocation = async () => {
+    try {
+      setGettingLocation(true);
+      
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert("Permission refusée", "L'accès à la localisation est nécessaire pour obtenir votre adresse actuelle.");
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const [address] = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+
+      if (address) {
+        const formattedAddress = [
+          address.street,
+          address.city,
+          address.region,
+          address.country
+        ].filter(Boolean).join(', ');
+        
+        if (formattedAddress) {
+          handleChange("address", formattedAddress);
+          Alert.alert("Succès", "Adresse mise à jour avec votre position actuelle");
+        }
+      }
+    } catch (error) {
+      console.error("Erreur localisation:", error);
+      Alert.alert("Erreur", "Impossible d'obtenir votre position actuelle");
+    } finally {
+      setGettingLocation(false);
     }
   };
 
@@ -230,8 +385,19 @@ const EditProfileScreenOrganisateur = () => {
         quality: 0.8,
       });
 
-      if (!result.canceled) {
-        setProfileImage(result.assets[0].uri);
+      if (!result.canceled && result.assets[0].uri) {
+        const imageUri = result.assets[0].uri;
+        setProfileImage(imageUri);
+        
+        try {
+          const uploadedImageUrl = await uploadImage(imageUri);
+          setProfileImage(uploadedImageUrl);
+          setForm(prev => ({ ...prev, profilePicture: uploadedImageUrl }));
+          Alert.alert("Succès", "Photo de profil mise à jour avec succès");
+        } catch (error) {
+          Alert.alert("Erreur", "Échec du téléchargement de l'image");
+          // Keep the local image for preview anyway
+        }
       }
     } catch (error) {
       console.error("Erreur sélection image:", error);
@@ -250,53 +416,70 @@ const EditProfileScreenOrganisateur = () => {
         return;
       }
 
-      const updateData: any = {
+      // Update user profile
+      const userUpdateData = {
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        address: form.address,
+      };
+
+      // Update organizer profile
+      const organizerUpdateData: any = {
         companyName: form.companyName,
         address: form.address,
-        phone: form.companyPhone,
-        type: form.type,
         contactEmail: form.contactEmail,
         description: form.description,
         website: form.website,
-        businessHours: form.businessHours,
+        type: form.type,
         categories: form.categories,
         banque: form.banque,
         rib: form.rib,
       };
 
-      const socialMediaData = [];
-      if (form.facebook) socialMediaData.push({ platform: 'facebook', url: form.facebook });
-      if (form.instagram) socialMediaData.push({ platform: 'instagram', url: form.instagram });
-      if (form.twitter) socialMediaData.push({ platform: 'twitter', url: form.twitter });
-      if (form.linkedin) socialMediaData.push({ platform: 'linkedin', url: form.linkedin });
-      
-      if (socialMediaData.length > 0) {
-        updateData.socialMedia = socialMediaData;
+      // Add phone only if it's different from user phone
+      if (form.companyPhone && form.companyPhone !== form.phone) {
+        organizerUpdateData.phone = form.companyPhone;
       }
 
-      console.log("✅ Données envoyées (format corrigé):", updateData);
+      // Prepare social media data
+      const socialMediaData = [];
+      if (form.facebook) socialMediaData.push({ type: 'facebook', url: form.facebook, name: form.companyName });
+      if (form.instagram) socialMediaData.push({ type: 'instagram', url: form.instagram, name: form.companyName });
+      if (form.twitter) socialMediaData.push({ type: 'twitter', url: form.twitter, name: form.companyName });
+      if (form.linkedin) socialMediaData.push({ type: 'linkedin', url: form.linkedin, name: form.companyName });
+      if (form.whatsapp) socialMediaData.push({ type: 'whatsapp', url: form.whatsapp, name: form.companyName });
+      
+      if (socialMediaData.length > 0) {
+        organizerUpdateData.socialMedia = socialMediaData;
+      }
 
-      const response = await axios.put(
-        `${API_URL}/api/organizers/profile`,
-        updateData,
-        {
+      console.log("✅ Données utilisateur envoyées:", userUpdateData);
+      console.log("✅ Données organisateur envoyées:", organizerUpdateData);
+
+      // Make both API calls
+      await Promise.all([
+        axios.put(`${API_URL}/api/users/profile`, userUpdateData, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
-      );
+        }),
+        axios.put(`${API_URL}/api/organizers/profile`, organizerUpdateData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        })
+      ]);
 
-      if (response.data) {
-        Alert.alert("Succès", "Profil mis à jour avec succès !");
-        router.back();
-      }
+      Alert.alert("Succès", "Profil mis à jour avec succès !");
+      router.back();
     } catch (error: any) {
       console.error("Erreur sauvegarde détaillée:", {
         message: error.message,
         status: error.response?.status,
         data: error.response?.data,
-        config: error.config
       });
       
       let errorMessage = "Erreur lors de la mise à jour du profil";
@@ -370,22 +553,31 @@ const EditProfileScreenOrganisateur = () => {
           <View className="items-center mb-8">
             <TouchableOpacity onPress={() => setImageModalVisible(true)}>
               <View className="relative">
-                <Image
-                  source={{ uri: profileImage }}
-                  className="w-32 h-32 rounded-full border-4"
-                  style={{ borderColor: primaryColor }}
-                />
-                <View className="absolute bottom-2 right-2 bg-white p-2 rounded-full shadow-lg">
-                  <Ionicons name="camera" size={20} color={primaryColor} />
-                </View>
+                {uploadingImage ? (
+                  <View className="w-32 h-32 rounded-full border-4 justify-center items-center" style={{ borderColor: primaryColor }}>
+                    <ActivityIndicator size="large" color={primaryColor} />
+                  </View>
+                ) : (
+                  <>
+                    <Image
+                      source={{ uri: profileImage || "https://i.postimg.cc/fLPF4T98/Whats-App-Image-2025-06-27-12-01-22-36d8d6d7.jpg" }}
+                      className="w-32 h-32 rounded-full border-4"
+                      style={{ borderColor: primaryColor }}
+                    />
+                    <View className="absolute bottom-2 right-2 bg-white p-2 rounded-full shadow-lg">
+                      <Ionicons name="camera" size={20} color={primaryColor} />
+                    </View>
+                  </>
+                )}
               </View>
             </TouchableOpacity>
             <Text className="text-gray-300 text-sm mt-3">
-              Appuyez pour changer la photo
+              {uploadingImage ? "Téléchargement..." : "Appuyez pour changer la photo"}
             </Text>
           </View>
 
           <View className="space-y-4">
+            {/* Informations Personnelles */}
             <View>
               <SectionHeader
                 icon="person"
@@ -424,16 +616,47 @@ const EditProfileScreenOrganisateur = () => {
                     <TextInput
                       placeholder="+222 XX XX XX XX"
                       placeholderTextColor="#6b7280"
-                      value={form.personalPhone}
-                      onChangeText={(text) => handleChange("personalPhone", text)}
+                      value={form.phone}
+                      onChangeText={(text) => handleChange("phone", text)}
                       keyboardType="phone-pad"
                       className="bg-white/10 text-white rounded-xl px-4 py-3 text-base border border-white/10"
+                    />
+                  </View>
+
+                  <View>
+                    <View className="flex-row justify-between items-center mb-2">
+                      <Text className="text-teal-400 text-sm font-medium">Adresse</Text>
+                      <TouchableOpacity 
+                        onPress={getCurrentLocation}
+                        disabled={gettingLocation}
+                        className="flex-row items-center"
+                      >
+                        {gettingLocation ? (
+                          <ActivityIndicator size="small" color={secondaryColor} />
+                        ) : (
+                          <Ionicons name="location" size={16} color={secondaryColor} />
+                        )}
+                        <Text className="text-teal-400 text-xs ml-1">
+                          {gettingLocation ? "Récupération..." : "Position actuelle"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <TextInput
+                      placeholder="Votre adresse"
+                      placeholderTextColor="#6b7280"
+                      value={form.address}
+                      onChangeText={(text) => handleChange("address", text)}
+                      multiline
+                      numberOfLines={2}
+                      textAlignVertical="top"
+                      className="bg-white/10 text-white rounded-xl px-4 py-3 text-base border border-white/10 min-h-[60px]"
                     />
                   </View>
                 </View>
               )}
             </View>
 
+            {/* Informations de l'Entreprise */}
             <View>
               <SectionHeader
                 icon="business"
@@ -468,14 +691,37 @@ const EditProfileScreenOrganisateur = () => {
                   </View>
 
                   <View>
-                    <Text className="text-teal-400 text-sm font-medium mb-2">Adresse</Text>
-                    <TextInput
-                      placeholder="Adresse de votre entreprise"
-                      placeholderTextColor="#6b7280"
-                      value={form.address}
-                      onChangeText={(text) => handleChange("address", text)}
-                      className="bg-white/10 text-white rounded-xl px-4 py-3 text-base border border-white/10"
-                    />
+                    <Text className="text-teal-400 text-sm font-medium mb-2">Type d'organisateur</Text>
+                    <View className="flex-row space-x-4">
+                      <TouchableOpacity
+                        className={`flex-1 py-3 rounded-xl border ${
+                          form.type === "particular" 
+                            ? "border-teal-400 bg-teal-400/20" 
+                            : "border-white/10 bg-white/5"
+                        }`}
+                        onPress={() => handleChange("type", "particular")}
+                      >
+                        <Text className={`text-center ${
+                          form.type === "particular" ? "text-teal-400" : "text-white"
+                        }`}>
+                          Particulier
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        className={`flex-1 py-3 rounded-xl border ${
+                          form.type === "entreprise" 
+                            ? "border-teal-400 bg-teal-400/20" 
+                            : "border-white/10 bg-white/5"
+                        }`}
+                        onPress={() => handleChange("type", "entreprise")}
+                      >
+                        <Text className={`text-center ${
+                          form.type === "entreprise" ? "text-teal-400" : "text-white"
+                        }`}>
+                          Entreprise
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   <View>
@@ -486,6 +732,18 @@ const EditProfileScreenOrganisateur = () => {
                       value={form.contactEmail}
                       onChangeText={(text) => handleChange("contactEmail", text)}
                       keyboardType="email-address"
+                      className="bg-white/10 text-white rounded-xl px-4 py-3 text-base border border-white/10"
+                    />
+                  </View>
+
+                  <View>
+                    <Text className="text-teal-400 text-sm font-medium mb-2">Site web</Text>
+                    <TextInput
+                      placeholder="https://votre-site.com"
+                      placeholderTextColor="#6b7280"
+                      value={form.website}
+                      onChangeText={(text) => handleChange("website", text)}
+                      keyboardType="url"
                       className="bg-white/10 text-white rounded-xl px-4 py-3 text-base border border-white/10"
                     />
                   </View>
@@ -505,26 +763,32 @@ const EditProfileScreenOrganisateur = () => {
                   </View>
 
                   <View>
-                    <Text className="text-teal-400 text-sm font-medium mb-2">Site web</Text>
-                    <TextInput
-                      placeholder="https://votre-site.com"
-                      placeholderTextColor="#6b7280"
-                      value={form.website}
-                      onChangeText={(text) => handleChange("website", text)}
-                      keyboardType="url"
-                      className="bg-white/10 text-white rounded-xl px-4 py-3 text-base border border-white/10"
-                    />
-                  </View>
-
-                  <View>
-                    <Text className="text-teal-400 text-sm font-medium mb-2">Heures d'ouverture</Text>
-                    <TextInput
-                      placeholder="Ex: Lun-Ven 9h-18h"
-                      placeholderTextColor="#6b7280"
-                      value={form.businessHours}
-                      onChangeText={(text) => handleChange("businessHours", text)}
-                      className="bg-white/10 text-white rounded-xl px-4 py-3 text-base border border-white/10"
-                    />
+                    <Text className="text-teal-400 text-sm font-medium mb-2">Catégories</Text>
+                    <View className="flex-row space-x-2 mb-2">
+                      <TextInput
+                        placeholder="Ajouter une catégorie"
+                        placeholderTextColor="#6b7280"
+                        value={newCategory}
+                        onChangeText={setNewCategory}
+                        className="flex-1 bg-white/10 text-white rounded-xl px-4 py-3 text-base border border-white/10"
+                      />
+                      <TouchableOpacity
+                        onPress={addCategory}
+                        className="bg-teal-400 px-4 rounded-xl justify-center"
+                      >
+                        <Text className="text-white font-bold">+</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View className="flex-row flex-wrap gap-2">
+                      {form.categories.map((category, index) => (
+                        <View key={index} className="bg-teal-400/20 px-3 py-2 rounded-full flex-row items-center">
+                          <Text className="text-teal-400 text-sm mr-2">{category}</Text>
+                          <TouchableOpacity onPress={() => removeCategory(category)}>
+                            <Ionicons name="close" size={16} color={secondaryColor} />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
                   </View>
 
                   <View>
@@ -552,6 +816,7 @@ const EditProfileScreenOrganisateur = () => {
               )}
             </View>
 
+            {/* Réseaux Sociaux */}
             <View>
               <SectionHeader
                 icon="share-social"
@@ -567,6 +832,7 @@ const EditProfileScreenOrganisateur = () => {
                     { label: "Instagram", field: "instagram", icon: "instagram", color: "#E4405F" },
                     { label: "Twitter", field: "twitter", icon: "twitter", color: "#1DA1F2" },
                     { label: "LinkedIn", field: "linkedin", icon: "linkedin", color: "#0A66C2" },
+                    { label: "WhatsApp", field: "whatsapp", icon: "whatsapp", color: "#25D366" },
                   ].map((social, index) => (
                     <View key={index} className="flex-row items-center bg-white/10 rounded-xl px-4 py-3 border border-white/10">
                       <FontAwesome name={social.icon as any} size={20} color={social.color} />

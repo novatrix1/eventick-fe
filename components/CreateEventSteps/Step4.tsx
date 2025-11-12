@@ -33,10 +33,9 @@ const Step4 = memo(({
           activeOpacity={0.7}
         >
           <View
-            className={`bg-white w-5 h-5 rounded-full shadow ${eventData.isPromo ? 'ml-7' : 'ml-0'
-              }`}
-            style={{ transition: 'margin-left 0.3s' }}
-          />
+  className={`bg-white w-5 h-5 rounded-full shadow ${eventData.isPromo ? 'ml-7' : 'ml-0'}`}
+/>
+
         </TouchableOpacity>
       </View>
 

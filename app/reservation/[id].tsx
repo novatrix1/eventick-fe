@@ -11,7 +11,6 @@ import {
   Alert,
   Dimensions,
   Image,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
@@ -19,8 +18,13 @@ import {
   View,
 } from "react-native";
 import { z } from "zod";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const API_URL = "https://eventick.onrender.com";
+
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const phoneNumberSchema = z
@@ -166,7 +170,7 @@ const useEventDetails = (eventId?: string, ticketTypeId?: string) => {
 };
 
 const ReservationScreen = () => {
-  const params = useLocalSearchParams<SearchParams>();
+const params = useLocalSearchParams() as unknown as SearchParams;
 
   const eventId = params.id;
   const ticketTypeId = params.ticketTypeId;
@@ -274,16 +278,16 @@ const ReservationScreen = () => {
       phoneNumberSchema.parse(senderNumber);
     } catch (e) {
       errors.senderNumber =
-        e instanceof z.ZodError ? e.errors[0].message : "Numéro invalide";
+  e instanceof z.ZodError ? e.issues[0].message : "Numéro invalide";
+
     }
 
     try {
       transactionIdSchema.parse(transactionID);
     } catch (e) {
       errors.transactionID =
-        e instanceof z.ZodError
-          ? e.errors[0].message
-          : "ID de transaction requis";
+  e instanceof z.ZodError ? e.issues[0].message : "ID de transaction requis";
+
     }
 
     setFormErrors(errors);
@@ -433,7 +437,7 @@ const ReservationScreen = () => {
         } as any);
       }
 
-      console.log(formData);
+      console.log("les données du reservation : ", formData);
       const response = await axios.post(
         `${API_URL}/api/payments/create`,
         formData,

@@ -1,15 +1,27 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = "https://eventick.onrender.com";
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
 
 export const useAuthApi = () => {
   const [loading, setLoading] = useState(false);
 
   const handleApiError = (error: any, defaultMessage: string) => {
     const message = error.response?.data?.message || defaultMessage;
-    Alert.alert("Erreur", message);
+    
+    // Gestion spécifique des erreurs de token
+    if (error.response?.status === 401) {
+      AsyncStorage.removeItem("token");
+      Alert.alert("Session expirée", "Veuillez vous reconnecter");
+    } else {
+      Alert.alert("Erreur", message);
+    }
+    
     throw error;
   };
 
@@ -29,6 +41,11 @@ export const useAuthApi = () => {
     try {
       setLoading(true);
       const res = await axios.post(`${API_URL}/api/auth/login`, credentials);
+      
+      if (res.data.token) {
+        await AsyncStorage.setItem("token", res.data.token);
+      }
+      
       return res.data;
     } catch (error: any) {
       return handleApiError(error, "Erreur lors de la connexion");
@@ -67,7 +84,7 @@ export const useAuthApi = () => {
     }
   };
 
-  const registerOrganizer = async (organizerData: any, token: string) => {
+  const registerOrganizer = async (organizerData: FormData, token: string) => {
     try {
       setLoading(true);
       const res = await axios.post(
@@ -76,6 +93,7 @@ export const useAuthApi = () => {
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
           },
         }
       );

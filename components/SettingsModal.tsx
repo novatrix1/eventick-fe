@@ -9,8 +9,9 @@ interface SettingsModalProps {
   onClose: () => void;
   settings: NotificationSettings;
   onTogglePushEnabled: () => void;
-  onToggleCategory: (category: string) => void;
+  onToggleCategory: (category: keyof NotificationSettings['categories']) => void;
 }
+
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
   visible,
@@ -72,7 +73,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         </View>
                         <Switch
                           value={settings.categories[category.id as keyof NotificationSettings['categories']]}
-                          onValueChange={() => onToggleCategory(category.id)}
+onValueChange={() => onToggleCategory(category.id as keyof NotificationSettings['categories'])}
                           trackColor={{ false: '#767577', true: PRIMARY_COLOR }}
                           thumbColor={settings.categories[category.id as keyof NotificationSettings['categories']] ? '#001215' : '#f4f3f4'}
                         />

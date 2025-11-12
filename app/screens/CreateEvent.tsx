@@ -20,8 +20,9 @@ import {
   View,
 } from "react-native";
 
-const API_URL = "https://eventick.onrender.com";
+import Constants from 'expo-constants';
 
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
 const CreateEvent = () => {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
@@ -38,6 +39,8 @@ const CreateEvent = () => {
     category: "",
     image: null as string | null,
     isPromo: false,
+     wilaya: "",    
+  moughataa: "",   
     promoDiscount: 0,
     promoEndDate: new Date(),
   });
@@ -214,13 +217,17 @@ const CreateEvent = () => {
         );
       });
 
-      if (eventData.image) {
-        eventPayload.append("image", {
-          uri: eventData.image,
-          type: "image/jpeg",
-          name: "event-image.jpg",
-        });
-      }
+     if (eventData.image) {
+  eventPayload.append(
+    "image",
+    {
+      uri: eventData.image,
+      type: "image/jpeg",
+      name: "event-image.jpg",
+    } as any // 👈 cast pour ignorer la vérification TS
+  );
+}
+
 
       console.log("Envoi des données:", eventPayload);
 

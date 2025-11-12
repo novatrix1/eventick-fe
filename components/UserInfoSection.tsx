@@ -9,12 +9,20 @@ interface UserInfoSectionProps {
 }
 
 const UserInfoSection: React.FC<UserInfoSectionProps> = ({ userInfo, organizerStatus }) => {
+  const hasProfilePicture = userInfo.profilePicture && userInfo.profilePicture.trim() !== '';
+
   return (
     <View className="items-center mb-10">
-      <Image
-        source={{ uri: userInfo.profilePicture }}
-        className="w-28 h-28 rounded-full border-4 border-[#ec673b]"
-      />
+      {hasProfilePicture ? (
+        <Image
+          source={{ uri: userInfo.profilePicture }}
+          className="w-28 h-28 rounded-full border-4 border-[#ec673b]"
+        />
+      ) : (
+        <View className="w-28 h-28 rounded-full border-4 border-[#ec673b] bg-[#ec673b]/20 justify-center items-center">
+          <Ionicons name="person" size={52} color="#ec673b" />
+        </View>
+      )}
 
       {organizerStatus.isOrganizer && !organizerStatus.isVerified && (
         <View className="mt-4 bg-orange-500/20 px-4 py-2 rounded-full flex-row items-center">

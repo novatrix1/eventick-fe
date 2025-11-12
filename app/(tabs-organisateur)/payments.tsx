@@ -19,8 +19,9 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import Constants from 'expo-constants';
 
-const API_URL = "https://eventick.onrender.com";
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
 
 const PaymentsScreen = () => {
   const [activeTab, setActiveTab] = useState<'balance' | 'history'>('balance');
@@ -115,7 +116,8 @@ const PaymentsScreen = () => {
 
   const requestWithdrawal = async () => {
     if (!withdrawalAmount || isNaN(Number(withdrawalAmount))) {
-      Haptics.notificationAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
       Alert.alert("Erreur", "Veuillez entrer un montant valide");
       return;
     }
@@ -123,25 +125,29 @@ const PaymentsScreen = () => {
     const amount = Number(withdrawalAmount);
     
     if (amount > balanceData.available) {
-      Haptics.notificationAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
       Alert.alert("Erreur", "Le montant demandé dépasse votre solde disponible");
       return;
     }
     
     if (amount < 50) { 
-      Haptics.notificationAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
       Alert.alert("Erreur", "Le montant minimum de retrait est de 50 MRO");
       return;
     }
 
     if ((withdrawalMethod === 'bankily' || withdrawalMethod === 'masrvi') && !bankInfo.phoneNumber) {
-      Haptics.notificationAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
       Alert.alert("Erreur", "Veuillez entrer votre numéro de téléphone");
       return;
     }
 
     if (withdrawalMethod === 'bank' && !bankInfo.rib) {
-      Haptics.notificationAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
       Alert.alert("Erreur", "Veuillez entrer votre RIB");
       return;
     }

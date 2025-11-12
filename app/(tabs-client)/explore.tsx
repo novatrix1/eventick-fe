@@ -8,7 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context'; // ✅ version moderne
+import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { StatusBar } from 'expo-status-bar';
 
 import BackgroundWrapper from '@/components/BackgroundWrapper';

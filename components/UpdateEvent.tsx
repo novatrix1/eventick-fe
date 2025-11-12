@@ -20,8 +20,12 @@ import {
   View,
 } from "react-native";
 
-const API_URL = "https://eventick.onrender.com";
+import Constants from 'expo-constants';
 
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
+
+// Interface compatible avec eventTypes
 interface EventData {
   _id?: string;
   title: string;
@@ -31,8 +35,8 @@ interface EventData {
   endTime: Date;
   location: string;
   city: string;
-  wilaya?: string;
-  moughataa?: string;
+  wilaya: string; // Changé de optionnel à requis
+  moughataa: string; // Changé de optionnel à requis
   category: string;
   image: string | null;
   isPromo: boolean;
@@ -56,6 +60,8 @@ const UpdateEvent = () => {
     endTime: new Date(new Date().setHours(new Date().getHours() + 2)),
     location: "",
     city: "",
+    wilaya: "", // Initialisé avec une valeur par défaut
+    moughataa: "", // Initialisé avec une valeur par défaut
     category: "",
     image: null,
     isPromo: false,
@@ -113,8 +119,8 @@ const UpdateEvent = () => {
           endTime: endTime,
           location: event.location,
           city: event.city,
-          wilaya: event.wilaya,
-          moughataa: event.moughataa,
+          wilaya: event.wilaya || "", // Valeur par défaut si undefined
+          moughataa: event.moughataa || "", // Valeur par défaut si undefined
           category: event.category,
           image: event.image || null,
           isPromo: event.isPromo || false,
@@ -286,13 +292,8 @@ const UpdateEvent = () => {
       eventPayload.append("time", formattedTime);
       eventPayload.append("category", eventData.category);
       eventPayload.append("city", eventData.city);
-      
-      if (eventData.wilaya) {
-        eventPayload.append("wilaya", eventData.wilaya);
-      }
-      if (eventData.moughataa) {
-        eventPayload.append("moughataa", eventData.moughataa);
-      }
+      eventPayload.append("wilaya", eventData.wilaya); // Maintenant toujours une string
+      eventPayload.append("moughataa", eventData.moughataa); // Maintenant toujours une string
 
       formattedTickets.forEach((ticket, index) => {
         eventPayload.append(`ticket[${index}][type]`, ticket.type);
@@ -512,7 +513,7 @@ const UpdateEvent = () => {
                 name="arrow-forward"
                 size={20}
                 color="#001215"
-                className="ml-2"
+                style={{ marginLeft: 8 }}
               />
             )}
           </TouchableOpacity>

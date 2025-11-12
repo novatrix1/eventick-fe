@@ -100,13 +100,17 @@ const OrganizerStep2Form: React.FC<OrganizerStep2FormProps> = ({
         <View className="flex-row items-center bg-white/10 rounded-xl px-4 py-3">
           <Ionicons name="link" size={20} color="#ec673b" className="mr-3" />
           <TextInput
-            className="flex-1 text-white"
-            placeholder="Facebook, Instagram, site web"
-            placeholderTextColor="#9CA3AF"
-            value={formData.socialMedia}
-            onChangeText={text => onInputChange('socialMedia', text)}
-            editable={!loading}
-          />
+  className="flex-1 text-white"
+  placeholder="Facebook, Instagram, site web"
+  placeholderTextColor="#9CA3AF"
+  value={formData.socialMedia.map(item => item.url).join(', ')} 
+  onChangeText={text => {
+    const urls = text.split(',').map(url => ({ type: 'custom', url: url.trim(), name: '' }));
+    onInputChange('socialMedia', urls as unknown as any);
+  }}
+  editable={!loading}
+/>
+
         </View>
       </View>
 

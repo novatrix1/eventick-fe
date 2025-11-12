@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -20,6 +19,11 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { useNavigation } from '@react-navigation/native';
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const EditProfileScreen = () => {
   const navigation = useNavigation();
@@ -45,7 +49,7 @@ const EditProfileScreen = () => {
       try {
         setLoading(true);
         const token = await AsyncStorage.getItem('token');
-        const res = await axios.get('https://eventick.onrender.com/api/users/profile', {
+        const res = await axios.get(`${API_URL}/api/users/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         
@@ -177,7 +181,7 @@ const EditProfileScreen = () => {
       }
 
       await axios.put(
-        'https://eventick.onrender.com/api/users/profile',
+        `${API_URL}/api/users/profile`,
         formData,
         { 
           headers: { 

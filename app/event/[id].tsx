@@ -7,8 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
 
-const API_URL = "https://eventick.onrender.com";
+import Constants from 'expo-constants';
 
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
 interface Organizer {
   _id: string;
   companyName: string;
@@ -42,7 +43,7 @@ interface Event {
   time: string;
   totalTickets: number;
   availableTickets: number;
-  image: string | null;
+  image?: string;
   category: string;
   city: string;
   organizer: Organizer;
@@ -102,15 +103,17 @@ const EventDetailScreen = () => {
     if (!selectedTicketData) return;
 
     router.push({
-      pathname: `/reservation/${event._id}`,
-      params: {
-        ticketTypeId: selectedTicket,
-        quantity: ticketCount,
-        price: selectedTicketData.price,
-        eventTitle: event.title,
-        eventDate: event.date
-      }
-    });
+  pathname: "/reservation/[id]",
+  params: {
+    id: event._id,
+    ticketTypeId: selectedTicket,
+    quantity: ticketCount,
+    price: selectedTicketData.price,
+    eventTitle: event.title,
+    eventDate: event.date
+  }
+});
+
   };
 
   const incrementTickets = () => setTicketCount(prev => prev + 1);
@@ -294,7 +297,7 @@ const EventDetailScreen = () => {
                 key={i}
                 className="flex-row items-center bg-teal-500/25 py-2 px-4 rounded-2xl mr-3 mb-3 shadow"
               >
-                <Ionicons name={info.icon} size={20} color="#ffff" />
+                <Ionicons name={info.icon as keyof typeof Ionicons.glyphMap} size={20} color="#ffff" />
                 <View className="ml-3">{typeof info.label === 'string' ? (
                   <Text className="text-white font-semibold">{info.label}</Text>
                 ) : (

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, Alert } from 'react-native';
+import { View, Text, ScrollView, Alert } from 'react-native';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import axios from 'axios';
+import { SafeAreaView } from "react-native-safe-area-context";
+
 
 import { useUserInfo } from '@/hooks/useUserInfo';
 import { useOrganizerStatus } from '@/hooks/useOrganizerStatus';
@@ -14,7 +16,10 @@ import ProfileActionItem from '@/components/ProfileActionItem';
 import HelpOptionItem from '@/components/HelpOptionItem';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 
-const API_URL = "https://eventick.onrender.com";
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
 
 const ProfileScreen = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -47,7 +52,7 @@ const ProfileScreen = () => {
           {
             text: 'OK',
             onPress: () => router.push({
-              pathname: 'screens/reset-password',
+              pathname: '/screens/reset-password',
               params: { email: userInfo.email }
             })
           }

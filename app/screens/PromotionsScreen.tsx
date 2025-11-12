@@ -296,7 +296,7 @@ const PromotionsScreen = () => {
         {featuredPromo && (
           <FeaturedPromotion
             promo={featuredPromo}
-            onPress={() => navigation.navigate('EventDetail', { eventId: featuredPromo.id })}
+            onPress={() => {/** navigation.navigate('EventDetail', { eventId: featuredPromo.id }) */}}
           />
         )}
 
@@ -308,7 +308,7 @@ const PromotionsScreen = () => {
             renderItem={({ item }) => (
               <PromotionCard
                 promo={item}
-                onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}
+                onPress={() => {/** navigation.navigate('EventDetail', { eventId: item.id }) */} }
               />
             )}
             keyExtractor={(item) => item.id}

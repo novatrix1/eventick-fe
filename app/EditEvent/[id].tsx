@@ -20,7 +20,11 @@ import {
   View,
 } from "react-native";
 
-const API_URL = "https://eventick.onrender.com";
+
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
 
 interface EventData {
   title: string;
@@ -30,8 +34,8 @@ interface EventData {
   endTime: Date;
   location: string;
   city: string;
-  wilaya?: string;
-  moughataa?: string;
+  wilaya: string;
+  moughataa: string;
   category: string;
   image: string | null;
   isPromo: boolean;
@@ -65,6 +69,8 @@ const UpdateEvent = () => {
     location: "",
     city: "",
     category: "",
+    wilaya: "", 
+  moughataa: "", 
     image: null,
     isPromo: false,
     promoDiscount: 0,

@@ -7,7 +7,6 @@ import {
   Image,
   Modal,
   TextInput,
-  SafeAreaView,
   Switch,
   Alert,
   ActivityIndicator
@@ -15,11 +14,14 @@ import {
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
-import { router } from 'expo-router';
+import { Href, router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const API_URL = "https://eventick.onrender.com";
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
 
 const primaryColor = '#ec673b';
 
@@ -30,6 +32,17 @@ const helpOptions = [
   { id: 'privacy', title: 'Politique de confidentialité', icon: 'shield', screen: 'screens/PrivacyPolicyScreen' },
 ];
 
+interface UserProfile {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  profilePicture?: string;
+  address: string;
+  role: string;
+  isVerified: boolean;
+}
+
 interface OrganizerProfile {
   _id: string;
   user: {
@@ -37,6 +50,7 @@ interface OrganizerProfile {
     name: string;
     email: string;
     phone: string;
+    profilePicture?: string;
   };
   companyName: string;
   address: string;
@@ -61,6 +75,7 @@ interface OrganizerProfile {
 }
 
 const ProfileScreen = () => {
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [organizerProfile, setOrganizerProfile] = useState<OrganizerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,14 +94,59 @@ const ProfileScreen = () => {
     devices: 2,
   });
 
-
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // Fetch user profile
+  const fetchUserProfile = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        setError("Vous devez être connecté");
+        return null;
+      }
+
+      const response = await axios.get(`${API_URL}/api/users/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return response.data.user;
+    } catch (err: any) {
+      console.error("Erreur chargement profil utilisateur:", err);
+      setError(err.response?.data?.message || "Erreur lors du chargement du profil utilisateur");
+      return null;
+    }
+  };
+
+  // Fetch organizer profile
   const fetchOrganizerProfile = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        setError("Vous devez être connecté");
+        return null;
+      }
+
+      const response = await axios.get(`${API_URL}/api/organizers/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return response.data.organizer;
+    } catch (err: any) {
+      console.error("Erreur chargement profil organisateur:", err);
+      setError(err.response?.data?.message || "Erreur lors du chargement du profil organisateur");
+      return null;
+    }
+  };
+
+  const fetchProfiles = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -97,27 +157,34 @@ const ProfileScreen = () => {
         return;
       }
 
-      const response = await axios.get(`${API_URL}/api/organizers/profile`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // Fetch both profiles in parallel
+      const [userData, organizerData] = await Promise.all([
+        fetchUserProfile(),
+        fetchOrganizerProfile()
+      ]);
 
-      if (response.data && response.data.organizer) {
-        setOrganizerProfile(response.data.organizer);
-      } else {
+      if (userData) {
+        setUserProfile(userData);
+      }
+
+      if (organizerData) {
+        setOrganizerProfile(organizerData);
+      }
+
+      // If no data at all
+      if (!userData && !organizerData) {
         setError("Aucune donnée de profil trouvée");
       }
     } catch (err: any) {
-      console.error("Erreur lors du chargement du profil:", err);
-      setError(err.response?.data?.message || "Erreur lors du chargement du profil");
+      console.error("Erreur lors du chargement des profils:", err);
+      setError(err.response?.data?.message || "Erreur lors du chargement des profils");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOrganizerProfile();
+    fetchProfiles();
   }, []);
 
   const changePassword = async () => {
@@ -184,6 +251,9 @@ const ProfileScreen = () => {
       if (response.data) {
         Alert.alert("Succès", "Compte supprimé avec succès");
         setShowDeleteModal(false);
+        // Clear storage and redirect to login
+        await AsyncStorage.removeItem("token");
+        await AsyncStorage.removeItem("user");
         router.replace("/(auth)/login");
       }
     } catch (err: any) {
@@ -214,7 +284,38 @@ const ProfileScreen = () => {
     }));
   };
 
+  // Get profile picture - prioritize user profile picture
+  const getProfilePicture = () => {
+    return userProfile?.profilePicture || 
+           organizerProfile?.user?.profilePicture || 
+           "https://i.postimg.cc/fLPF4T98/Whats-App-Image-2025-06-27-12-01-22-36d8d6d7.jpg";
+  };
 
+  // Get display name - prioritize user name
+  const getDisplayName = () => {
+    return userProfile?.name || organizerProfile?.user?.name || 'Non renseigné';
+  };
+
+  // Get display email - prioritize user email
+  const getDisplayEmail = () => {
+    return userProfile?.email || organizerProfile?.user?.email || 'Non renseigné';
+  };
+
+  // Get display phone - show both personal and company phones
+  const getDisplayPhone = () => {
+    const personalPhone = userProfile?.phone || organizerProfile?.user?.phone;
+    const companyPhone = organizerProfile?.phone;
+    
+    if (personalPhone && companyPhone && personalPhone !== companyPhone) {
+      return `Perso: ${personalPhone} | Pro: ${companyPhone}`;
+    }
+    return personalPhone || companyPhone || 'Non renseigné';
+  };
+
+  // Get company name
+  const getCompanyName = () => {
+    return organizerProfile?.companyName || 'Aucune entreprise';
+  };
 
   if (loading) {
     return (
@@ -235,7 +336,7 @@ const ProfileScreen = () => {
           <Text className="text-white text-xl text-center mb-4">{error}</Text>
           <TouchableOpacity
             className="bg-teal-400 py-3 px-6 rounded-xl"
-            onPress={fetchOrganizerProfile}
+            onPress={fetchProfiles}
           >
             <Text className="text-gray-900 font-bold">Réessayer</Text>
           </TouchableOpacity>
@@ -252,36 +353,46 @@ const ProfileScreen = () => {
           className="flex-1 px-5 pt-6 pb-32"
           showsVerticalScrollIndicator={false}
         >
+          {/* Header avec informations du profil */}
           <View className="items-center mb-8">
             <Image
-              source={{ uri: 'https://i.postimg.cc/fLPF4T98/Whats-App-Image-2025-06-27-12-01-22-36d8d6d7.jpg' }}
+              source={{ uri: getProfilePicture() }}
               className="w-32 h-32 rounded-full border-4 border-[#ec673b]"
             />
             <Text className="text-white text-2xl font-extrabold mt-5">
-              {organizerProfile?.user?.name || 'Non renseigné'}
-            </Text>
-            <Text className="text-gray-400 mt-1">
-              {organizerProfile?.companyName || 'Non renseigné'}
-            </Text>
-            <Text className="text-gray-400 mt-1">
-              {organizerProfile?.user?.email || 'Non renseigné'}
-            </Text>
-            <Text className="text-gray-400">
-              {organizerProfile?.phone || organizerProfile?.user?.phone || 'Non renseigné'}
+              {getDisplayName()}
             </Text>
             
-  
+            <Text className="text-gray-400 mt-1">
+              {getDisplayEmail()}
+            </Text>
+            <Text className="text-gray-400 text-center">
+              {getDisplayPhone()}
+            </Text>
+            
+            {organizerProfile?.companyName && (
+              <View className="mt-2 bg-teal-400/20 px-4 py-2 rounded-full">
+                <Text className="text-teal-400 font-medium">
+                  {getCompanyName()}
+                </Text>
+              </View>
+            )}
+
+            {organizerProfile?.isVerified && (
+              <View className="flex-row items-center mt-2 bg-green-400/20 px-3 py-1 rounded-full">
+                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                <Text className="text-green-400 text-sm ml-1">Compte vérifié</Text>
+              </View>
+            )}
           </View>
 
+          {/* Section Mon profil */}
           <View className="mb-8">
             <Text className="text-white text-xl font-bold mb-4">Mon profil</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
               <TouchableOpacity
                 className="flex-row items-center p-4"
-                onPress={() => router.push({
-                  pathname: '/screens/EditProfileScreenOrganisateur',
-                  params: { organizer: JSON.stringify(organizerProfile) }
-                })}
+                onPress={() => router.push('/screens/EditProfileScreenOrganisateur')}
                 activeOpacity={0.7}
               >
                 <Ionicons name="create" size={26} color={primaryColor} />
@@ -317,6 +428,7 @@ const ProfileScreen = () => {
             </View>
           </View>
 
+          {/* Section Notifications */}
           <View className="mb-8">
             <Text className="text-white text-xl font-bold mb-4">Notifications</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -343,9 +455,34 @@ const ProfileScreen = () => {
                   trackColor={{ false: '#767577', true: primaryColor }}
                 />
               </View>
+
+              <View className="flex-row items-center justify-between p-4 border-t border-white/20">
+                <View className="flex-row items-center">
+                  <Ionicons name="megaphone" size={26} color={primaryColor} />
+                  <Text className="text-white ml-4 text-lg">Promotions</Text>
+                </View>
+                <Switch
+                  value={notifications.promotions}
+                  onValueChange={() => toggleNotification('promotions')}
+                  trackColor={{ false: '#767577', true: primaryColor }}
+                />
+              </View>
+
+              <View className="flex-row items-center justify-between p-4 border-t border-white/20">
+                <View className="flex-row items-center">
+                  <Ionicons name="notifications" size={26} color={primaryColor} />
+                  <Text className="text-white ml-4 text-lg">Mises à jour</Text>
+                </View>
+                <Switch
+                  value={notifications.updates}
+                  onValueChange={() => toggleNotification('updates')}
+                  trackColor={{ false: '#767577', true: primaryColor }}
+                />
+              </View>
             </View>
           </View>
 
+          {/* Section Sécurité */}
           <View className="mb-8">
             <Text className="text-white text-xl font-bold mb-4">Sécurité</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -384,6 +521,7 @@ const ProfileScreen = () => {
             </View>
           </View>
 
+          {/* Section Centre d'aide */}
           <View className="mb-8">
             <Text className="text-white text-xl font-bold mb-4">Centre d'aide</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -392,7 +530,7 @@ const ProfileScreen = () => {
                   key={option.id}
                   className={`flex-row items-center p-4 ${i < helpOptions.length - 1 ? 'border-b border-white/20' : ''
                     }`}
-                  onPress={() => router.push(option.screen)}
+onPress={() => router.push(option.screen as Href)}
                   activeOpacity={0.7}
                 >
                   <Ionicons name={option.icon as any} size={26} color={primaryColor} />
@@ -403,6 +541,7 @@ const ProfileScreen = () => {
             </View>
           </View>
 
+          {/* Section Actions critiques */}
           <View className="mb-20 rounded-xl overflow-hidden border border-white/10 bg-white/10">
             <TouchableOpacity
               className="flex-row items-center p-5 border-b border-white/20"
@@ -428,6 +567,7 @@ const ProfileScreen = () => {
           </View>
         </ScrollView>
 
+        {/* Modal de changement de mot de passe */}
         <Modal
           visible={showPasswordModal}
           transparent
@@ -486,6 +626,7 @@ const ProfileScreen = () => {
           </View>
         </Modal>
 
+        {/* Modal de suppression de compte */}
         <Modal
           visible={showDeleteModal}
           transparent
