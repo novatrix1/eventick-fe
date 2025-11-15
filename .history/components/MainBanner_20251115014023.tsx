@@ -79,6 +79,7 @@ const MainBanner: React.FC<MainBannerProps> = ({ event, onPress }) => {
         </View>
       </View>
 
+  
     </TouchableOpacity>
   );
 };

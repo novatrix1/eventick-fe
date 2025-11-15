@@ -23,7 +23,7 @@ import Constants from 'expo-constants';
 
 const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
 
-console.log("L'api est : ",API_URL)
+console.log("L'api est : ", API_URL)
 
 
 const LoginScreen = () => {
@@ -32,54 +32,54 @@ const LoginScreen = () => {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-  if (!email || !password) {
-    Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
-    return;
-  }
-
-  try {
-    setLoading(true);
-
-    const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
-    const { token, user } = response.data;
-
-    //console.log("Réponse login:", response.data);
-
-    await AsyncStorage.setItem("token", token);
-
-    if (user.role === "organizer") {
-      try {
-        const organizerRes = await axios.get(`${API_URL}/api/organizers/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        const isVerified = organizerRes.data.organizer?.isVerified ?? false;
-
-        if (isVerified) {
-          router.replace("/(tabs-organisateur)/dashboard");
-        } else {
-          Alert.alert(
-            "Compte non vérifié",
-            "Votre compte organisateur n'est pas encore vérifié."
-          );
-          router.replace("/(tabs-client)/home");
-        }
-      } catch {
-        //console.error("Erreur récupération organisateur:", err.response?.data || err.message);
-        Alert.alert("Erreur", "Impossible de récupérer le profil organisateur.");
-      }
-    } else if (user.role === "user") {
-      router.replace("/(tabs-client)/home");
-    } else {
-      Alert.alert("Erreur", "Rôle inconnu !");
+    if (!email || !password) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
+      return;
     }
-  } catch (error: any) {
-    console.error("Erreur login:", error.response?.data || error.message);
-    Alert.alert("Erreur", error.response?.data?.message || "Échec de connexion");
-  } finally {
-    setLoading(false);
-  }
-};
+
+    try {
+      setLoading(true);
+
+      const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
+      const { token, user } = response.data;
+
+      //console.log("Réponse login:", response.data);
+
+      await AsyncStorage.setItem("token", token);
+
+      if (user.role === "organizer") {
+        try {
+          const organizerRes = await axios.get(`${API_URL}/api/organizers/profile`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          const isVerified = organizerRes.data.organizer?.isVerified ?? false;
+
+          if (isVerified) {
+            router.replace("/(tabs-organisateur)/dashboard");
+          } else {
+            Alert.alert(
+              "Compte non vérifié",
+              "Votre compte organisateur n'est pas encore vérifié."
+            );
+            router.replace("/(tabs-client)/home");
+          }
+        } catch {
+          //console.error("Erreur récupération organisateur:", err.response?.data || err.message);
+          Alert.alert("Erreur", "Impossible de récupérer le profil organisateur.");
+        }
+      } else if (user.role === "user") {
+        router.replace("/(tabs-client)/home");
+      } else {
+        Alert.alert("Erreur", "Rôle inconnu !");
+      }
+    } catch (error: any) {
+      console.error("Erreur login:", error.response?.data || error.message);
+      Alert.alert("Erreur", error.response?.data?.message || "Échec de connexion");
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   const handleForgotPassword = () => {
@@ -170,10 +170,10 @@ const LoginScreen = () => {
             </Animated.View>
 
             <Animated.View entering={FadeInUp.delay(800)} className="mt-10 flex-row justify-center">
-              <Text className="text-gray-400 font-semibold text-lg">Vous n'avez pas de compte?</Text>
+              <Text className="text-gray-400 font-semibold text-lg">{"Vous n'avez pas de compte?"}</Text>
               <Link href="/register" asChild>
                 <TouchableOpacity className="ml-3">
-                  <Text className="text-[#ec673b] font-bold underline text-lg">S'inscrire</Text>
+                  <Text className="text-[#ec673b] font-bold underline text-lg">{"S'inscrire"}</Text>
                 </TouchableOpacity>
               </Link>
             </Animated.View>

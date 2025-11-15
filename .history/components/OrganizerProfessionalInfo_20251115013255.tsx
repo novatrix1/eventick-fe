@@ -55,7 +55,7 @@ const OrganizerProfessionalInfo: React.FC<OrganizerProfessionalInfoProps> = ({
 
             let location = await Location.getCurrentPositionAsync({
                 accuracy: Location.Accuracy.Highest,
-                // timeout: 15000,
+               // timeout: 15000,
             });
 
             let addressList = await Location.reverseGeocodeAsync({
@@ -100,14 +100,14 @@ const OrganizerProfessionalInfo: React.FC<OrganizerProfessionalInfoProps> = ({
         setShowBankSelection(false);
     };
 
-    const handleSocialMediaChange = (index: number, field: 'type' | 'url' | 'name', value: string) => {
-        const newSocialMedia = [...formData.socialMedia];
+  const handleSocialMediaChange = (index: number, field: 'type' | 'url' | 'name', value: string) => {
+    const newSocialMedia = [...formData.socialMedia];
 
-        if (field === 'type' && !socialMediaTypes.includes(value)) return;
+    if (field === 'type' && !socialMediaTypes.includes(value)) return;
 
-        newSocialMedia[index] = { ...newSocialMedia[index], [field]: value };
-        onInputChange('socialMedia', newSocialMedia);
-    };
+    newSocialMedia[index] = { ...newSocialMedia[index], [field]: value };
+    onInputChange('socialMedia', newSocialMedia);
+};
 
 
     const addSocialMediaField = () => {

@@ -140,6 +140,9 @@ const RegisterScreen = () => {
         } as any);
       }
 
+
+      console.log("Les données du registration : ", formData);
+
       await registerOrganizer(formDataToSend, loginRes.token);
 
       Alert.alert("Succès", "Demande soumise avec succès ! En attente de vérification.");

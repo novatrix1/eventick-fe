@@ -79,6 +79,13 @@ const MainBanner: React.FC<MainBannerProps> = ({ event, onPress }) => {
         </View>
       </View>
 
+      {event.availableTickets && event.totalTickets && (
+        <View className="absolute top-2 left-2 bg-black/80 px-2 py-1 rounded">
+          <Text className="text-white text-xs">
+            {Math.round((event.availableTickets / event.totalTickets) * 100)}% restant
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
