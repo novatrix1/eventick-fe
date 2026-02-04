@@ -29,8 +29,31 @@ const ProfileScreen = () => {
   const { organizerStatus } = useOrganizerStatus(userInfo.role);
 
   const navigateToHelp = (id: string) => {
-    alert(`Navigation vers: ${id}`);
+    switch (id) {
+      case 'faq':
+        router.push('/screens/FAQScreen');
+        break;
+
+      case 'contact':
+        router.push('/screens/ContactSupportScreen');
+        break;
+
+      case 'terms':
+        router.push('/screens/TermsOfUseScreen');
+        break;
+
+      case 'privacy':
+        router.push('/screens/PrivacyPolicyScreen');
+        break;
+
+      default:
+        Alert.alert(
+          'Information',
+          'Cette section est en cours de développement.'
+        );
+    }
   };
+
 
   const handleChangePassword = async () => {
     if (!userInfo?.email) {
@@ -40,13 +63,13 @@ const ProfileScreen = () => {
 
     try {
       setLoading(true);
-      
-      const response = await axios.post(`${API_URL}/api/auth/forgot-password`, { 
-        email: userInfo.email 
+
+      const response = await axios.post(`${API_URL}/api/auth/forgot-password`, {
+        email: userInfo.email
       });
-      
+
       Alert.alert(
-        'Succès', 
+        'Succès',
         response.data.message || 'Code de réinitialisation envoyé par email',
         [
           {
@@ -61,7 +84,7 @@ const ProfileScreen = () => {
     } catch (error: any) {
       console.error('Erreur changement mot de passe:', error.response?.data || error.message);
       Alert.alert(
-        'Erreur', 
+        'Erreur',
         error.response?.data?.message || 'Erreur lors de l\'envoi du code'
       );
     } finally {
@@ -87,7 +110,7 @@ const ProfileScreen = () => {
       <SafeAreaView className="flex-1" edges={['top']}>
         <StatusBar style="light" />
         <ScrollView
-          className="flex-1 px-5 pt-6 pb-32"
+          className="flex-1 px-5 pt-6"
           showsVerticalScrollIndicator={false}
         >
           <UserInfoSection userInfo={userInfo} organizerStatus={organizerStatus} />
@@ -101,6 +124,8 @@ const ProfileScreen = () => {
                 onPress={() => router.push('/screens/EditProfileScreen')}
               />
 
+
+              {/** 
               <View className="border-t border-white/20">
                 <ProfileActionItem
                   icon="business"
@@ -115,6 +140,7 @@ const ProfileScreen = () => {
                   disabled={organizerStatus.isLoading}
                 />
               </View>
+              */}
             </View>
           </View>
 
@@ -167,6 +193,8 @@ const ProfileScreen = () => {
           onClose={() => setShowDeleteModal(false)}
           onConfirm={deleteAccount}
         />
+        <Text className="mb-5"></Text>
+
       </SafeAreaView>
     </BackgroundWrapper>
   );

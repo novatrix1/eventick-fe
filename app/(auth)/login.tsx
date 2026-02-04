@@ -30,6 +30,8 @@ const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -131,24 +133,39 @@ const LoginScreen = () => {
 
             <Animated.View entering={FadeInUp.delay(400)} className="mb-10">
               <Text className="text-gray-400 mb-3 font-semibold text-lg">Mot de passe</Text>
+
               <View className="flex-row items-center bg-white/10 rounded-xl px-6 py-4">
                 <Ionicons name="lock-closed" size={28} color="#ec673b" className="mr-4" />
+
                 <TextInput
                   className="flex-1 text-white text-lg"
-                  placeholder="••••••••"
+                  placeholder="•••••••••"
                   placeholderTextColor="#9CA3AF"
-                  secureTextEntry
+                  secureTextEntry={!showPassword}   // 👈 clé ici
                   value={password}
                   onChangeText={setPassword}
                 />
+
+                {/* Bouton œil */}
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <Ionicons
+                    name={showPassword ? "eye-off" : "eye"}
+                    size={26}
+                    color="#9CA3AF"
+                  />
+                </TouchableOpacity>
               </View>
+
               <TouchableOpacity
                 className="self-end mt-3"
                 onPress={handleForgotPassword}
               >
-                <Text className="text-[#ec673b] font-semibold text-base">Mot de passe oublié?</Text>
+                <Text className="text-[#ec673b] font-semibold text-base">
+                  Mot de passe oublié?
+                </Text>
               </TouchableOpacity>
             </Animated.View>
+
 
             <Animated.View entering={FadeInUp.delay(500)}>
               <TouchableOpacity

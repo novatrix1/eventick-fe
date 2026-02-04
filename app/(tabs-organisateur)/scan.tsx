@@ -1,42 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   Alert,
   Animated,
-  Dimensions,
   StyleSheet,
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { CameraView, useCameraPermissions, BarcodeScanningResult, FlashMode } from 'expo-camera';
+import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import Constants from 'expo-constants';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
-
-// Define types for navigation and props
-type RootStackParamList = {
-  // Add your actual screen names here based on your navigation structure
-  // Example:
-  // home: undefined;
-  // events: undefined;
-  // profile: undefined;
-};
-
-const [flashMode, setFlashMode] = useState<FlashMode>('off' as FlashMode);
-
-type ScanScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
-
-interface ScanScreenProps {
-  navigation: ScanScreenNavigationProp;
-}
 
 interface TicketData {
   ticketRef: string;
@@ -50,22 +32,41 @@ interface ValidationData {
   ticket?: TicketData;
 }
 
-const { width, height } = Dimensions.get('window');
-
-const ScanScreen: React.FC<ScanScreenProps> = ({ navigation }) => {
+const ScanScreen: React.FC = () => {
+  const router = useRouter();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [flashMode, setFlashMode] = useState<FlashMode>('off');
+  
+  // CORRECTION: Le type FlashMode n'inclut PAS 'torch'
+  // Utilisez 'off' | 'on' | 'auto' selon le type FlashMode
+  const [flashMode, setFlashMode] = useState<'off' | 'on' | 'auto'>('off');
+  
+  // Ajoutez un état séparé pour la lampe torche
+  const [torchEnabled, setTorchEnabled] = useState<boolean>(false);
+  
   const [permission, requestPermission] = useCameraPermissions();
   const [validationModalVisible, setValidationModalVisible] = useState<boolean>(false);
   const [validationData, setValidationData] = useState<ValidationData | null>(null);
+  const [isActive, setIsActive] = useState(true);
   
   const cameraRef = useRef<CameraView>(null);
   const scanLineAnim = useRef(new Animated.Value(0)).current;
 
+  // Gère l'état actif de l'écran
+  useFocusEffect(
+    useCallback(() => {
+      setIsActive(true);
+      return () => {
+        setIsActive(false);
+      };
+    }, [])
+  );
+
   // Animation pour la ligne de scan
   useEffect(() => {
+    if (!isActive) return;
+    
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(scanLineAnim, {
@@ -86,20 +87,26 @@ const ScanScreen: React.FC<ScanScreenProps> = ({ navigation }) => {
     return () => {
       animation.stop();
     };
-  }, [scanLineAnim]);
+  }, [scanLineAnim, isActive]);
 
   // Demande de permission pour la caméra
   useEffect(() => {
     const getCameraPermission = async () => {
-      const { status } = await requestPermission();
-      setHasPermission(status === 'granted');
+      if (!permission?.granted) {
+        const { status } = await requestPermission();
+        setHasPermission(status === 'granted');
+      } else {
+        setHasPermission(true);
+      }
     };
 
     getCameraPermission();
-  }, [requestPermission]);
+  }, [permission, requestPermission]);
 
   // Validation du ticket via l'API
   const validateTicket = async (encryptedData: string): Promise<void> => {
+    if (!isActive) return;
+    
     setIsLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
@@ -146,26 +153,35 @@ const ScanScreen: React.FC<ScanScreenProps> = ({ navigation }) => {
 
   // Gestion du scan de code QR
   const handleBarCodeScanned = ({ data }: BarcodeScanningResult): void => {
-    if (isLoading) return;
+    if (isLoading || !isActive) return;
     
     const cleanData = data.trim();
     setScanResult(cleanData);
     validateTicket(cleanData);
   };
 
-  // Basculer le flash
-  
-const toggleFlash = () => {
-  setFlashMode(current =>
-    (current === 'off' ? 'torch' : 'off') as FlashMode
-  );
-};
+  // CORRECTION: Basculer entre flash et lampe torche
+  const toggleFlash = () => {
+    if (flashMode === 'off') {
+      // Active la lampe torche
+      setTorchEnabled(true);
+      setFlashMode('off'); // Gardez flashMode à 'off' car torch est séparé
+    } else {
+      // Désactive tout
+      setTorchEnabled(false);
+      setFlashMode('off');
+    }
+  };
 
   // Fermer le modal de validation
   const closeValidationModal = (): void => {
     setValidationModalVisible(false);
     setValidationData(null);
     setScanResult(null);
+  };
+
+  const handleBack = () => {
+    router.back();
   };
 
   // Écrans d'état pour les permissions
@@ -180,7 +196,7 @@ const toggleFlash = () => {
           style={StyleSheet.absoluteFill}
         />
         <ActivityIndicator size="large" color="#68f2f4" />
-        <Text style={styles.loadingText}>Demande d'autorisation pour la caméra...</Text>
+        <Text style={styles.loadingText}>Demande {"d'autorisation"} pour la caméra...</Text>
       </View>
     );
   }
@@ -198,13 +214,19 @@ const toggleFlash = () => {
         <Ionicons name="camera-outline" size={64} color="white" />
         <Text style={styles.errorTitle}>Accès à la caméra refusé</Text>
         <Text style={styles.errorSubtitle}>
-          Veuillez autoriser l'accès à la caméra dans les paramètres de votre appareil
+          {"Veuillez autoriser l'accès à la caméra dans les paramètres de votre appareil"}
         </Text>
         <TouchableOpacity
           style={styles.permissionButton}
           onPress={requestPermission}
         >
           <Text style={styles.permissionButtonText}>Demander à nouveau</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.permissionButton, { marginTop: 10, backgroundColor: '#006873' }]}
+          onPress={handleBack}
+        >
+          <Text style={styles.permissionButtonText}>Retour</Text>
         </TouchableOpacity>
       </View>
     );
@@ -223,7 +245,7 @@ const toggleFlash = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={24} color="white" />
@@ -232,73 +254,77 @@ const toggleFlash = () => {
         <View style={styles.headerRight} />
       </View>
 
-      {/* Zone du scanner */}
-      <View style={styles.scannerContainer}>
-        <View style={styles.cameraWrapper}>
-          <CameraView
-            ref={cameraRef}
-            style={styles.camera}
-            onBarcodeScanned={handleBarCodeScanned}
-            barcodeScannerSettings={{ 
-              barcodeTypes: ['qr', 'pdf417', 'aztec', 'codabar'] 
-            }}
-            flash={flashMode}
-          />
-          
-          {/* Overlay avec cadre de scan */}
-          <View style={styles.overlay}>
-            <View style={styles.topOverlay}>
-              <Text style={styles.overlayText}>Positionnez le QR code dans le cadre</Text>
-            </View>
+      {/* Zone du scanner - seulement si actif */}
+      {isActive && (
+        <View style={styles.scannerContainer}>
+          <View style={styles.cameraWrapper}>
+            <CameraView
+              ref={cameraRef}
+              style={styles.camera}
+              onBarcodeScanned={handleBarCodeScanned}
+              barcodeScannerSettings={{ 
+                barcodeTypes: ['qr', 'pdf417', 'aztec', 'codabar'] 
+              }}
+              flash={flashMode} // Utilise flashMode (off | on | auto)
+              enableTorch={torchEnabled} // CORRECTION: Utilise enableTorch pour la lampe torche
+            />
             
-            <View style={styles.middleOverlay}>
-              <View style={styles.focusBox}>
-                {/* Coins du cadre */}
-                <View style={[styles.corner, styles.cornerTopLeft]} />
-                <View style={[styles.corner, styles.cornerTopRight]} />
-                <View style={[styles.corner, styles.cornerBottomLeft]} />
-                <View style={[styles.corner, styles.cornerBottomRight]} />
-                
-                {/* Ligne de scan animée */}
-                <Animated.View 
-                  style={[
-                    styles.scanLine,
-                    {
-                      transform: [{
-                        translateY: scanLineAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0, 250]
-                        })
-                      }]
-                    }
-                  ]}
-                />
+            {/* Overlay avec cadre de scan */}
+            <View style={styles.overlay}>
+              <View style={styles.topOverlay}>
+                <Text style={styles.overlayText}>Positionnez le QR code dans le cadre</Text>
+              </View>
+              
+              <View style={styles.middleOverlay}>
+                <View style={styles.focusBox}>
+                  {/* Coins du cadre */}
+                  <View style={[styles.corner, styles.cornerTopLeft]} />
+                  <View style={[styles.corner, styles.cornerTopRight]} />
+                  <View style={[styles.corner, styles.cornerBottomLeft]} />
+                  <View style={[styles.corner, styles.cornerBottomRight]} />
+                  
+                  {/* Ligne de scan animée */}
+                  <Animated.View 
+                    style={[
+                      styles.scanLine,
+                      {
+                        transform: [{
+                          translateY: scanLineAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 250]
+                          })
+                        }]
+                      }
+                    ]}
+                  />
+                </View>
+              </View>
+              
+              <View style={styles.bottomOverlay}>
+                <TouchableOpacity 
+                  onPress={toggleFlash}
+                  style={styles.iconButton}
+                >
+                  <Ionicons 
+                    // CORRECTION: Vérifiez si la lampe torche est activée
+                    name={torchEnabled ? 'flash' : 'flash-off'} 
+                    size={24} 
+                    color="white" 
+                  />
+                </TouchableOpacity>
               </View>
             </View>
             
-            <View style={styles.bottomOverlay}>
-              <TouchableOpacity 
-                onPress={toggleFlash}
-                style={styles.iconButton}
-              >
-                <Ionicons 
-                  name={flashMode === 'off' ? 'flash-off' : 'flash'} 
-                  size={24} 
-                  color="white" 
-                />
-              </TouchableOpacity>
-            </View>
+            {/* Overlay de chargement */}
+            {isLoading && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color="#ec673b" />
+                <Text style={styles.loadingText}>Validation en cours...</Text>
+              </View>
+            )}
           </View>
-          
-          {/* Overlay de chargement */}
-          {isLoading && (
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#ec673b" />
-              <Text style={styles.loadingText}>Validation en cours...</Text>
-            </View>
-          )}
         </View>
-      </View>
+      )}
 
       {/* Modal de résultat de validation */}
       <Modal
@@ -365,6 +391,7 @@ const toggleFlash = () => {
   );
 };
 
+// Les styles restent les mêmes...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -617,4 +644,3 @@ const styles = StyleSheet.create({
 });
 
 export default ScanScreen;
-

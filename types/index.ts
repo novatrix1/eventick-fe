@@ -8,6 +8,7 @@ export interface RegisterFormData {
   email: string;
   phone: string;
   password: string;
+  confirmPassword: string;
   companyName: string;
   organizerType: string;
   address: string;

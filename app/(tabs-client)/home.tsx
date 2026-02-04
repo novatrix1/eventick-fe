@@ -27,6 +27,7 @@ import EventCard from '@/components/EventCard';
 import CategoryItem from '@/components/CategoryItem';
 import MainBanner from '@/components/MainBanner';
 import LocationSection from '@/components/LocationSection';
+import { rankEventForBanner, rankEventForYou, rankEventPopular } from '@/utils/eventRanking';
 
 const categories: Category[] = [
   { id: 'all', name: 'Tous', icon: 'apps' },
@@ -43,6 +44,7 @@ const HomeScreen = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [popularEvents, setPopularEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
+  const [mainBannerEvent, setMainBannerEvent] = useState<Event | null>(null);
 
   const { events, isLoading, refreshing, onRefresh } = useEvents();
   const { isLocating, userCity, nearbyEvents, getUserLocation } = useLocation(events);
@@ -55,19 +57,71 @@ const HomeScreen = () => {
   };
 
   useEffect(() => {
-    if (events.length > 0) {
-      setPopularEvents(events.slice(0, 3));
-    }
+    if (events.length === 0) return;
+
+    const rankedPopular = [...events]
+      .filter(
+        e =>
+          e.status !== 'completed' &&
+          e.isActive
+      )
+      .sort(
+        (a, b) =>
+          rankEventPopular(b) - rankEventPopular(a)
+      )
+      .slice(0, 3); // Top 3
+
+    setPopularEvents(rankedPopular);
   }, [events]);
+
 
   console.log("Les evenement populaire sont : ", popularEvents)
 
+
+  {/** 
   useEffect(() => {
     const categoryEvents = getCategoryEvents();
     setFilteredEvents(categoryEvents);
-  }, [selectedCategory, events]);
+  }, [selectedCategory, events]);*/}
 
-  
+  useEffect(() => {
+    if (events.length === 0) return;
+
+    const ranked = [...events]
+      .filter(
+        e =>
+          e.status !== 'completed' &&
+          e._id !== mainBannerEvent?._id
+      )
+      .sort(
+        (a, b) =>
+          rankEventForYou(b, {
+            selectedCategory,
+            userCity,
+          }) -
+          rankEventForYou(a, {
+            selectedCategory,
+            userCity,
+          })
+      )
+      .slice(0, 10); // max 10 cards
+
+    setFilteredEvents(ranked);
+  }, [events, selectedCategory, userCity, mainBannerEvent]);
+
+
+
+  useEffect(() => {
+    if (events.length === 0) return;
+
+    const rankedEvents = [...events]
+      .filter(e => e.status !== 'completed')
+      .sort((a, b) => rankEventForBanner(b) - rankEventForBanner(a));
+
+    setMainBannerEvent(rankedEvents[0]);
+  }, [events]);
+
+
 
   const handleEventPress = (eventId: string) => {
     router.push(`/event/${eventId}`);
@@ -122,9 +176,10 @@ const HomeScreen = () => {
             </View>
 
             {/* Bannière principale */}
-            {events.length > 0 && (
-              <MainBanner event={events[0]} onPress={handleEventPress} />
+            {mainBannerEvent && (
+              <MainBanner event={mainBannerEvent} onPress={handleEventPress} />
             )}
+
 
             {/* Catégories */}
             <View className="flex-row justify-between items-center mb-5 mt-3">

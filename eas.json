@@ -1,6 +1,6 @@
 {
   "cli": {
-    "version": ">= 16.17.4",
+    "version": ">=16.17.4",
     "appVersionSource": "remote"
   },
   "build": {
@@ -16,6 +16,14 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "arsprod01@icloud.com",
+        "ascAppId": "6758682794"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./path-to-your-google-service-account.json"
+      }
+    }
   }
 }

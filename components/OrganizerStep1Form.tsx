@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { RegisterFormData } from '../types';
@@ -16,13 +16,45 @@ const OrganizerStep1Form: React.FC<OrganizerStep1FormProps> = ({
   onInputChange,
   onSubmit,
 }) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  /* ---------------- VALIDATION CENTRALISÉE ---------------- */
+
+  const isEmpty = (value?: string) => !value || value.trim().length === 0;
+
+  const isFormComplete =
+    !isEmpty(formData.fullName) &&
+    !isEmpty(formData.email) &&
+    !isEmpty(formData.phone) &&
+    !isEmpty(formData.password) &&
+    !isEmpty(formData.confirmPassword);
+
+  const isPasswordStrong = formData.password.length >= 6;
+
+  const passwordsMismatch =
+    (formData.confirmPassword ?? '').length > 0 &&
+    formData.password !== formData.confirmPassword;
+
+  const isFormValid =
+    isFormComplete &&
+    isPasswordStrong &&
+    !passwordsMismatch &&
+    !loading;
+
+  /* -------------------------------------------------------- */
+
   return (
     <>
-      <Text className="text-white text-2xl font-bold mb-6 text-center">Informations de base</Text>
+      <Text className="text-white text-2xl font-bold mb-6 text-center">
+        Informations de base
+      </Text>
+
       <Text className="text-gray-400 text-center mb-8">
         {"Créez votre compte d'organisateur"}
       </Text>
 
+      {/* ---------------- NOM ---------------- */}
       <View className="mb-4">
         <Text className="text-gray-400 mb-2">Nom complet</Text>
         <View className="flex-row items-center bg-white/10 rounded-xl px-4 py-3">
@@ -38,6 +70,7 @@ const OrganizerStep1Form: React.FC<OrganizerStep1FormProps> = ({
         </View>
       </View>
 
+      {/* ---------------- EMAIL ---------------- */}
       <View className="mb-4">
         <Text className="text-gray-400 mb-2">Email</Text>
         <View className="flex-row items-center bg-white/10 rounded-xl px-4 py-3">
@@ -50,11 +83,13 @@ const OrganizerStep1Form: React.FC<OrganizerStep1FormProps> = ({
             onChangeText={text => onInputChange('email', text)}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoCorrect={false}
             editable={!loading}
           />
         </View>
       </View>
 
+      {/* ---------------- TÉLÉPHONE ---------------- */}
       <View className="mb-4">
         <Text className="text-gray-400 mb-2">Téléphone</Text>
         <View className="flex-row items-center bg-white/10 rounded-xl px-4 py-3">
@@ -71,7 +106,8 @@ const OrganizerStep1Form: React.FC<OrganizerStep1FormProps> = ({
         </View>
       </View>
 
-      <View className="mb-8">
+      {/* ---------------- MOT DE PASSE ---------------- */}
+      <View className="mb-4">
         <Text className="text-gray-400 mb-2">Mot de passe</Text>
         <View className="flex-row items-center bg-white/10 rounded-xl px-4 py-3">
           <Ionicons name="lock-closed" size={20} color="#ec673b" className="mr-3" />
@@ -79,22 +115,90 @@ const OrganizerStep1Form: React.FC<OrganizerStep1FormProps> = ({
             className="flex-1 text-white"
             placeholder="••••••••"
             placeholderTextColor="#9CA3AF"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             value={formData.password}
             onChangeText={text => onInputChange('password', text)}
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="newPassword"
+            importantForAutofill="no"
             editable={!loading}
           />
+          <TouchableOpacity
+            onPress={() => setShowPassword(p => !p)}
+            hitSlop={10}
+          >
+            <Ionicons
+              name={showPassword ? 'eye-off' : 'eye'}
+              size={20}
+              color="#9CA3AF"
+            />
+          </TouchableOpacity>
         </View>
-        <Text className="text-gray-500 text-xs mt-2">Minimum 6 caractères</Text>
+
+        {formData.password.length > 0 && !isPasswordStrong && (
+          <Text className="text-red-400 text-xs mt-2">
+            Le mot de passe doit contenir au moins 6 caractères
+          </Text>
+        )}
       </View>
 
+      {/* ---------------- CONFIRM PASSWORD ---------------- */}
+      <View className="mb-6">
+        <Text className="text-gray-400 mb-2">
+          Confirmer le mot de passe
+        </Text>
+
+        <View
+          className={`flex-row items-center rounded-xl px-4 py-3 ${
+            passwordsMismatch ? 'bg-red-500/10' : 'bg-white/10'
+          }`}
+        >
+          <Ionicons name="lock-open" size={20} color="#ec673b" className="mr-3" />
+          <TextInput
+            className="flex-1 text-white"
+            placeholder="••••••••"
+            placeholderTextColor="#9CA3AF"
+            secureTextEntry={!showConfirmPassword}
+            value={formData.confirmPassword}
+            onChangeText={text =>
+              onInputChange('confirmPassword', text)
+            }
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="newPassword"
+            importantForAutofill="no"
+            editable={!loading}
+          />
+          <TouchableOpacity
+            onPress={() => setShowConfirmPassword(p => !p)}
+            hitSlop={10}
+          >
+            <Ionicons
+              name={showConfirmPassword ? 'eye-off' : 'eye'}
+              size={20}
+              color="#9CA3AF"
+            />
+          </TouchableOpacity>
+        </View>
+
+        {passwordsMismatch && (
+          <Text className="text-red-400 text-xs mt-2">
+            Les mots de passe ne correspondent pas
+          </Text>
+        )}
+      </View>
+
+      {/* ---------------- SUBMIT ---------------- */}
       <TouchableOpacity
-        className={`py-4 rounded-xl items-center mb-6 ${loading ? 'bg-gray-500' : 'bg-[#ec673b]'}`}
+        className={`py-4 rounded-xl items-center mb-6 ${
+          isFormValid ? 'bg-[#ec673b]' : 'bg-gray-500'
+        }`}
         onPress={onSubmit}
-        disabled={loading}
+        disabled={!isFormValid}
       >
         <Text className="text-white font-bold text-lg">
-          {loading ? "Traitement..." : "Continuer"}
+          {loading ? 'Traitement...' : 'Continuer'}
         </Text>
       </TouchableOpacity>
     </>

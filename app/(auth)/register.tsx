@@ -21,6 +21,7 @@ const initialFormData: RegisterFormData = {
   email: '',
   phone: '',
   password: '',
+  confirmPassword: '', 
   companyName: '',
   organizerType: 'entreprise',
   address: '',
