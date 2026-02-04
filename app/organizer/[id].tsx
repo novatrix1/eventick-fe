@@ -15,7 +15,6 @@ import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 
-// 🟩 TYPES
 type Organizer = {
   id: string;
   name: string;
@@ -43,7 +42,6 @@ type EventSummary = {
   price: string;
 };
 
-// 🟩 FAKE DATA (à remplacer par props ou API)
 const organizerData: Organizer = {
   id: 'org-1',
   name: 'Association Culturelle Mauritanienne',
@@ -88,7 +86,6 @@ const organizerEvents: EventSummary[] = [
   },
 ];
 
-// 🟩 COMPONENT
 
 const OrganizerProfileScreen = () => {
   const handleCall = () => {
@@ -132,7 +129,6 @@ const OrganizerProfileScreen = () => {
         contentContainerStyle={{ paddingBottom: 80 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* HEADER */}
         <View className="h-64 relative bg-black/50">
           <Image
             source={{ uri: organizerData.photoUrl }}
@@ -170,13 +166,11 @@ const OrganizerProfileScreen = () => {
           </View>
         </View>
 
-        {/* BIO / DESCRIPTION */}
         <View className="p-4">
           <Text className="text-white text-lg font-semibold mb-2">À propos</Text>
           <Text className="text-gray-300 leading-relaxed">{organizerData.bio}</Text>
         </View>
 
-        {/* CONTACTS */}
         <View className="flex-row justify-around p-4 border-t border-b border-gray-700 bg-white/5 rounded-xl mx-4 mb-6">
           <TouchableOpacity
             className="items-center"
@@ -204,58 +198,55 @@ const OrganizerProfileScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* RÉSEAUX SOCIAUX */}
-{organizerData.socials && (
-  <View className="px-4 mb-6">
-    <Text className="text-white text-xl font-bold mb-3">Réseaux sociaux</Text>
-    <View className="flex-row">
-      {organizerData.socials.facebook && (
-        <TouchableOpacity
-          onPress={() => openSocialLink(organizerData.socials.facebook)}
-          activeOpacity={0.7}
-          accessibilityLabel="Facebook"
-          style={{ marginRight: 16 }}
-        >
-          <FontAwesome name="facebook-square" size={36} color="#68f2f4" />
-        </TouchableOpacity>
-      )}
-      {organizerData.socials.twitter && (
-        <TouchableOpacity
-          onPress={() => openSocialLink(organizerData.socials.twitter)}
-          activeOpacity={0.7}
-          accessibilityLabel="Twitter"
-          style={{ marginRight: 16 }}
-        >
-          <FontAwesome name="twitter-square" size={36} color="#68f2f4" />
-        </TouchableOpacity>
-      )}
-      {organizerData.socials.instagram && (
-        <TouchableOpacity
-          onPress={() => openSocialLink(organizerData.socials.instagram)}
-          activeOpacity={0.7}
-          accessibilityLabel="Instagram"
-          style={{ marginRight: 16 }}
-        >
-          <FontAwesome name="instagram" size={36} color="#68f2f4" />
-        </TouchableOpacity>
-      )}
-      {organizerData.socials.linkedin && (
-        <TouchableOpacity
-          onPress={() => openSocialLink(organizerData.socials.linkedin)}
-          activeOpacity={0.7}
-          accessibilityLabel="LinkedIn"
-          // Pas de marginRight ici sur la dernière icône
-        >
-          <FontAwesome name="linkedin-square" size={36} color="#68f2f4" />
-        </TouchableOpacity>
-      )}
-    </View>
-  </View>
-)}
+        {organizerData.socials && (
+          <View className="px-4 mb-6">
+            <Text className="text-white text-xl font-bold mb-3">Réseaux sociaux</Text>
+            <View className="flex-row">
+              {organizerData.socials.facebook && (
+                <TouchableOpacity
+                  onPress={() => openSocialLink(organizerData.socials!.facebook)}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Facebook"
+                  style={{ marginRight: 16 }}
+                >
+                  <FontAwesome name="facebook-square" size={36} color="#68f2f4" />
+                </TouchableOpacity>
+              )}
+              {organizerData.socials.twitter && (
+                <TouchableOpacity
+                  onPress={() => openSocialLink(organizerData.socials!.twitter)}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Twitter"
+                  style={{ marginRight: 16 }}
+                >
+                  <FontAwesome name="twitter-square" size={36} color="#68f2f4" />
+                </TouchableOpacity>
+              )}
+              {organizerData.socials.instagram && (
+                <TouchableOpacity
+                  onPress={() => openSocialLink(organizerData.socials!.instagram)}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Instagram"
+                  style={{ marginRight: 16 }}
+                >
+                  <FontAwesome name="instagram" size={36} color="#68f2f4" />
+                </TouchableOpacity>
+              )}
+              {organizerData.socials.linkedin && (
+                <TouchableOpacity
+                  onPress={() => openSocialLink(organizerData.socials!.linkedin)}
+                  activeOpacity={0.7}
+                  accessibilityLabel="LinkedIn"
+                >
+                  <FontAwesome name="linkedin-square" size={36} color="#68f2f4" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
 
 
 
-        {/* ÉVÉNEMENTS */}
         <View className="px-4 mb-10">
           <Text className="text-white text-xl font-bold mb-3">Événements organisés</Text>
           <FlatList

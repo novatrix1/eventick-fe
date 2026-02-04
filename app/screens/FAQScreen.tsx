@@ -4,11 +4,12 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import BackgroundWrapper from "@/components/BackgroundWrapper";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 
 const primaryColor = "#ec673b";
 

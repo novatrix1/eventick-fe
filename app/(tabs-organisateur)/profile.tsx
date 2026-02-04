@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,35 +7,78 @@ import {
   Image,
   Modal,
   TextInput,
-  SafeAreaView,
   Switch,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { StatusBar } from 'expo-status-bar';
-import { router } from 'expo-router';
+import { Href, router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { SafeAreaView } from "react-native-safe-area-context";
 
-// Couleur principale
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
 const primaryColor = '#ec673b';
 
 const helpOptions = [
-  { id: 'contact', title: 'Contacter le support', icon: 'headset', screen : '/screens/ContactSupportScreen' },
-  { id: 'faq', title: 'FAQ', icon: 'help-circle', screen : '/screens/FAQScreen' },
-  { id: 'terms', title: "Conditions d'utilisation", icon: 'document-text', screen : 'screens/TermsOfUseScreen' },
-  { id: 'privacy', title: 'Politique de confidentialité', icon: 'shield', screen : 'screens/PrivacyPolicyScreen' },
+  { id: 'contact', title: 'Contacter le support', icon: 'headset', screen: '/screens/ContactSupportScreen' },
+  { id: 'faq', title: 'FAQ', icon: 'help-circle', screen: '/screens/FAQScreen' },
+  { id: 'terms', title: "Conditions d'utilisation", icon: 'document-text', screen: 'screens/TermsOfUseScreen' },
+  { id: 'privacy', title: 'Politique de confidentialité', icon: 'shield', screen: 'screens/PrivacyPolicyScreen' },
 ];
 
+interface UserProfile {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  profilePicture?: string;
+  address: string;
+  role: string;
+  isVerified: boolean;
+}
+
+interface OrganizerProfile {
+  _id: string;
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    phone: string;
+    profilePicture?: string;
+  };
+  companyName: string;
+  address: string;
+  isVerified: boolean;
+  phone: string;
+  type: string;
+  socialMedia: any[];
+  description: string;
+  isActive: boolean;
+  verificationStatus: string;
+  categories: string[];
+  rating: number;
+  totalEvents: number;
+  totalRevenue: number;
+  contactEmail: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+  verificationDate?: string;
+  verifiedBy?: string;
+  balance: number;
+}
+
 const ProfileScreen = () => {
-
-
-  const [userInfo] = useState({
-    name: 'Amadou Sow',
-    email: 'contact@amadousow.dev',
-    phone: '+222 12 34 56 78',
-    profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
-    organization: 'EventMR',
-  });
-
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [organizerProfile, setOrganizerProfile] = useState<OrganizerProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [notifications, setNotifications] = useState({
     sales: true,
@@ -51,35 +94,187 @@ const ProfileScreen = () => {
     devices: 2,
   });
 
-  const [paymentSettings] = useState({
-    bankily: true,
-    masrvi: true,
-    bankAccount: 'MR12345678901234567890123456',
-  });
-
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showBankModal, setShowBankModal] = useState(false);
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const navigateToHelp = (id: string) => {
-    alert(`Navigation vers: ${id}`);
+  // Fetch user profile
+  const fetchUserProfile = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        setError("Vous devez être connecté");
+        return null;
+      }
+
+      const response = await axios.get(`${API_URL}/api/users/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return response.data.user;
+    } catch (err: any) {
+      console.error("Erreur chargement profil utilisateur:", err);
+      setError(err.response?.data?.message || "Erreur lors du chargement du profil utilisateur");
+      return null;
+    }
   };
 
-  const changePassword = () => {
-    setShowPasswordModal(false);
-    alert('Mot de passe changé avec succès!');
+  // Fetch organizer profile
+  const fetchOrganizerProfile = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        setError("Vous devez être connecté");
+        return null;
+      }
+
+      const response = await axios.get(`${API_URL}/api/organizers/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return response.data.organizer;
+    } catch (err: any) {
+      console.error("Erreur chargement profil organisateur:", err);
+      setError(err.response?.data?.message || "Erreur lors du chargement du profil organisateur");
+      return null;
+    }
   };
 
-  const deleteAccount = () => {
-    setShowDeleteModal(false);
-    alert('Votre compte a été supprimé.');
+  const fetchProfiles = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        setError("Vous devez être connecté");
+        return;
+      }
+
+      // Fetch both profiles in parallel
+      const [userData, organizerData] = await Promise.all([
+        fetchUserProfile(),
+        fetchOrganizerProfile()
+      ]);
+
+      if (userData) {
+        setUserProfile(userData);
+      }
+
+      if (organizerData) {
+        setOrganizerProfile(organizerData);
+      }
+
+      // If no data at all
+      if (!userData && !organizerData) {
+        setError("Aucune donnée de profil trouvée");
+      }
+    } catch (err: any) {
+      console.error("Erreur lors du chargement des profils:", err);
+      setError(err.response?.data?.message || "Erreur lors du chargement des profils");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const logout = () => {
-    alert('Déconnexion réussie.');
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
+
+  const changePassword = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Erreur", "Vous devez être connecté");
+        return;
+      }
+
+      if (!password || !newPassword || !confirmPassword) {
+        Alert.alert("Erreur", "Veuillez remplir tous les champs");
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        Alert.alert("Erreur", "Les mots de passe ne correspondent pas");
+        return;
+      }
+
+      const response = await axios.put(
+        `${API_URL}/api/auth/change-password`,
+        {
+          currentPassword: password,
+          newPassword: newPassword,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data) {
+        Alert.alert("Succès", "Mot de passe changé avec succès");
+        setShowPasswordModal(false);
+        setPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } catch (err: any) {
+      console.error("Erreur changement mot de passe:", err);
+      Alert.alert(
+        "Erreur",
+        err.response?.data?.message || "Erreur lors du changement de mot de passe"
+      );
+    }
+  };
+
+  const deleteAccount = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Erreur", "Vous devez être connecté");
+        return;
+      }
+
+      const response = await axios.delete(`${API_URL}/api/organizers/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data) {
+        Alert.alert("Succès", "Compte supprimé avec succès");
+        setShowDeleteModal(false);
+        // Clear storage and redirect to login
+        await AsyncStorage.removeItem("token");
+        await AsyncStorage.removeItem("user");
+        router.replace("/(auth)/login");
+      }
+    } catch (err: any) {
+      console.error("Erreur suppression compte:", err);
+      Alert.alert(
+        "Erreur",
+        err.response?.data?.message || "Erreur lors de la suppression du compte"
+      );
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await AsyncStorage.removeItem("token");
+      await AsyncStorage.removeItem("user");
+      Alert.alert("Succès", "Déconnexion réussie");
+      router.replace("/(auth)/login");
+    } catch (err) {
+      console.error("Erreur déconnexion:", err);
+      Alert.alert("Erreur", "Erreur lors de la déconnexion");
+    }
   };
 
   const toggleNotification = (type: keyof typeof notifications) => {
@@ -89,6 +284,67 @@ const ProfileScreen = () => {
     }));
   };
 
+  // Get profile picture - prioritize user profile picture
+  const getProfilePicture = () => {
+    return userProfile?.profilePicture || 
+           organizerProfile?.user?.profilePicture || 
+           "https://i.postimg.cc/fLPF4T98/Whats-App-Image-2025-06-27-12-01-22-36d8d6d7.jpg";
+  };
+
+  // Get display name - prioritize user name
+  const getDisplayName = () => {
+    return userProfile?.name || organizerProfile?.user?.name || 'Non renseigné';
+  };
+
+  // Get display email - prioritize user email
+  const getDisplayEmail = () => {
+    return userProfile?.email || organizerProfile?.user?.email || 'Non renseigné';
+  };
+
+  // Get display phone - show both personal and company phones
+  const getDisplayPhone = () => {
+    const personalPhone = userProfile?.phone || organizerProfile?.user?.phone;
+    const companyPhone = organizerProfile?.phone;
+    
+    if (personalPhone && companyPhone && personalPhone !== companyPhone) {
+      return `Perso: ${personalPhone} | Pro: ${companyPhone}`;
+    }
+    return personalPhone || companyPhone || 'Non renseigné';
+  };
+
+  // Get company name
+  const getCompanyName = () => {
+    return organizerProfile?.companyName || 'Aucune entreprise';
+  };
+
+  if (loading) {
+    return (
+      <BackgroundWrapper>
+        <SafeAreaView className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color={primaryColor} />
+          <Text className="text-white mt-4 text-lg">Chargement du profil...</Text>
+        </SafeAreaView>
+      </BackgroundWrapper>
+    );
+  }
+
+  if (error) {
+    return (
+      <BackgroundWrapper>
+        <SafeAreaView className="flex-1 justify-center items-center p-6">
+          <MaterialIcons name="error-outline" size={64} color="#EF4444" />
+          <Text className="text-white text-xl text-center mb-4">{error}</Text>
+          <TouchableOpacity
+            className="bg-teal-400 py-3 px-6 rounded-xl"
+            onPress={fetchProfiles}
+          >
+            <Text className="text-gray-900 font-bold">Réessayer</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      </BackgroundWrapper>
+    );
+  }
+
   return (
     <BackgroundWrapper>
       <SafeAreaView className="flex-1" edges={['top']}>
@@ -97,22 +353,40 @@ const ProfileScreen = () => {
           className="flex-1 px-5 pt-6 pb-32"
           showsVerticalScrollIndicator={false}
         >
-          {/* Infos personnelles */}
+          {/* Header avec informations du profil */}
           <View className="items-center mb-8">
             <Image
-              source={{ uri: userInfo.profileImage }}
+              source={{ uri: getProfilePicture() }}
               className="w-32 h-32 rounded-full border-4 border-[#ec673b]"
             />
             <Text className="text-white text-2xl font-extrabold mt-5">
-              {userInfo.name}
+              {getDisplayName()}
             </Text>
-            <Text className="text-gray-400 mt-1">{userInfo.organization}</Text>
-            <Text className="text-gray-400 mt-1">{userInfo.email}</Text>
-            <Text className="text-gray-400">{userInfo.phone}</Text>
+            
+            <Text className="text-gray-400 mt-1">
+              {getDisplayEmail()}
+            </Text>
+            <Text className="text-gray-400 text-center">
+              {getDisplayPhone()}
+            </Text>
+            
+            {organizerProfile?.companyName && (
+              <View className="mt-2 bg-teal-400/20 px-4 py-2 rounded-full">
+                <Text className="text-teal-400 font-medium">
+                  {getCompanyName()}
+                </Text>
+              </View>
+            )}
+
+            {organizerProfile?.isVerified && (
+              <View className="flex-row items-center mt-2 bg-green-400/20 px-3 py-1 rounded-full">
+                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                <Text className="text-green-400 text-sm ml-1">Compte vérifié</Text>
+              </View>
+            )}
           </View>
 
-
-          {/* Section Mon Profil */}
+          {/* Section Mon profil */}
           <View className="mb-8">
             <Text className="text-white text-xl font-bold mb-4">Mon profil</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -154,7 +428,7 @@ const ProfileScreen = () => {
             </View>
           </View>
 
-          {/* Notifications */}
+          {/* Section Notifications */}
           <View className="mb-8">
             <Text className="text-white text-xl font-bold mb-4">Notifications</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -182,13 +456,33 @@ const ProfileScreen = () => {
                 />
               </View>
 
+              <View className="flex-row items-center justify-between p-4 border-t border-white/20">
+                <View className="flex-row items-center">
+                  <Ionicons name="megaphone" size={26} color={primaryColor} />
+                  <Text className="text-white ml-4 text-lg">Promotions</Text>
+                </View>
+                <Switch
+                  value={notifications.promotions}
+                  onValueChange={() => toggleNotification('promotions')}
+                  trackColor={{ false: '#767577', true: primaryColor }}
+                />
+              </View>
 
-
-
+              <View className="flex-row items-center justify-between p-4 border-t border-white/20">
+                <View className="flex-row items-center">
+                  <Ionicons name="notifications" size={26} color={primaryColor} />
+                  <Text className="text-white ml-4 text-lg">Mises à jour</Text>
+                </View>
+                <Switch
+                  value={notifications.updates}
+                  onValueChange={() => toggleNotification('updates')}
+                  trackColor={{ false: '#767577', true: primaryColor }}
+                />
+              </View>
             </View>
           </View>
 
-          {/* Sécurité */}
+          {/* Section Sécurité */}
           <View className="mb-8">
             <Text className="text-white text-xl font-bold mb-4">Sécurité</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -217,7 +511,7 @@ const ProfileScreen = () => {
 
               <TouchableOpacity
                 className="flex-row items-center p-4 border-t border-white/20"
-                 onPress={() => router.push('/screens/LoginHistoryScreen')}
+                onPress={() => router.push('/screens/LoginHistoryScreen')}
                 activeOpacity={0.7}
               >
                 <Ionicons name="time" size={26} color={primaryColor} />
@@ -227,7 +521,7 @@ const ProfileScreen = () => {
             </View>
           </View>
 
-          {/* Centre d'aide */}
+          {/* Section Centre d'aide */}
           <View className="mb-8">
             <Text className="text-white text-xl font-bold mb-4">Centre d'aide</Text>
             <View className="bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -236,8 +530,7 @@ const ProfileScreen = () => {
                   key={option.id}
                   className={`flex-row items-center p-4 ${i < helpOptions.length - 1 ? 'border-b border-white/20' : ''
                     }`}
-                  onPress={() => router.push(option.screen)}
-
+onPress={() => router.push(option.screen as Href)}
                   activeOpacity={0.7}
                 >
                   <Ionicons name={option.icon as any} size={26} color={primaryColor} />
@@ -248,9 +541,8 @@ const ProfileScreen = () => {
             </View>
           </View>
 
-          {/* Actions du compte */}
+          {/* Section Actions critiques */}
           <View className="mb-20 rounded-xl overflow-hidden border border-white/10 bg-white/10">
-
             <TouchableOpacity
               className="flex-row items-center p-5 border-b border-white/20"
               onPress={logout}
@@ -275,7 +567,7 @@ const ProfileScreen = () => {
           </View>
         </ScrollView>
 
-        {/* Modal Changer mot de passe */}
+        {/* Modal de changement de mot de passe */}
         <Modal
           visible={showPasswordModal}
           transparent
@@ -334,80 +626,7 @@ const ProfileScreen = () => {
           </View>
         </Modal>
 
-        {/* Modal Paramètres bancaires */}
-        <Modal
-          visible={showBankModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowBankModal(false)}
-        >
-          <View className="flex-1 bg-black/70 justify-center items-center p-6">
-            <View className="bg-[#0f172a] rounded-3xl p-6 w-full max-w-md shadow-lg border-t-4 border-[#ec673b]">
-              <Text className="text-white text-2xl font-bold mb-6 text-center">
-                Paramètres de paiement
-              </Text>
-
-              <View className="mb-6">
-                <Text className="text-white mb-2 font-semibold">Méthodes de paiement</Text>
-
-                <View className="flex-row items-center justify-between mb-4">
-                  <View className="flex-row items-center">
-                    <FontAwesome5 name="mobile-alt" size={24} color="#4CAF50" />
-                    <Text className="text-white ml-3">Bankily</Text>
-                  </View>
-                  <Switch
-                    value={paymentSettings.bankily}
-                    trackColor={{ false: '#767577', true: '#4CAF50' }}
-                  />
-                </View>
-
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center">
-                    <FontAwesome5 name="credit-card" size={24} color="#2196F3" />
-                    <Text className="text-white ml-3">Masrvi</Text>
-                  </View>
-                  <Switch
-                    value={paymentSettings.masrvi}
-                    trackColor={{ false: '#767577', true: '#2196F3' }}
-                  />
-                </View>
-              </View>
-
-              <View className="mb-6">
-                <Text className="text-white mb-2 font-semibold">Compte bancaire</Text>
-                <TextInput
-                  className="bg-white/10 text-white rounded-xl px-5 py-4 text-lg border border-white/10"
-                  placeholder="IBAN"
-                  placeholderTextColor="#ccc"
-                  value={paymentSettings.bankAccount}
-                />
-              </View>
-
-              <View className="flex-row space-x-4">
-                <TouchableOpacity
-                  className="flex-1 py-4 rounded-xl items-center bg-white/10"
-                  onPress={() => setShowBankModal(false)}
-                  activeOpacity={0.8}
-                >
-                  <Text className="text-white font-bold text-lg">Fermer</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="flex-1 py-4 rounded-xl items-center"
-                  style={{ backgroundColor: primaryColor }}
-                  onPress={() => {
-                    setShowBankModal(false);
-                    alert('Paramètres sauvegardés!');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text className="text-white font-bold text-lg">Sauvegarder</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Modal Supprimer compte */}
+        {/* Modal de suppression de compte */}
         <Modal
           visible={showDeleteModal}
           transparent
@@ -450,5 +669,3 @@ const ProfileScreen = () => {
 };
 
 export default ProfileScreen;
-
-

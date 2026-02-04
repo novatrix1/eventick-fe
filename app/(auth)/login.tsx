@@ -8,7 +8,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,71 +17,75 @@ import { Link, router } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const API_URL = "https://eventick.onrender.com";
+import Constants from 'expo-constants';
+
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
+console.log("L'api est : ", API_URL)
+
 
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
 
   const handleLogin = async () => {
-  if (!email || !password) {
-    Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
-    return;
-  }
-
-  try {
-    setLoading(true);
-
-    const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
-    const { token, user } = response.data;
-
-    console.log("Réponse login:", response.data);
-
-    await AsyncStorage.setItem("token", token);
-
-    if (user.role === "organizer") {
-      // Vérifier si l'organisateur est certifié
-      try {
-        const organizerRes = await axios.get(`${API_URL}/api/organizers/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        const isVerified = organizerRes.data.organizer?.isVerified ?? false;
-
-        if (isVerified) {
-          router.replace("/(tabs-organisateur)/dashboard");
-        } else {
-          Alert.alert(
-            "Compte non vérifié",
-            "Votre compte organisateur n'est pas encore vérifié."
-          );
-          router.replace("/(tabs-client)/home");
-        }
-      } catch (err) {
-        console.error("Erreur récupération organisateur:", err.response?.data || err.message);
-        Alert.alert("Erreur", "Impossible de récupérer le profil organisateur.");
-      }
-    } else if (user.role === "user") {
-      router.replace("/(tabs-client)/home");
-    } else {
-      Alert.alert("Erreur", "Rôle inconnu !");
+    if (!email || !password) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
+      return;
     }
-  } catch (error: any) {
-    console.error("Erreur login:", error.response?.data || error.message);
-    Alert.alert("Erreur", error.response?.data?.message || "Échec de connexion");
-  } finally {
-    setLoading(false);
-  }
-};
+
+    try {
+      setLoading(true);
+
+      const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
+      const { token, user } = response.data;
+
+      //console.log("Réponse login:", response.data);
+
+      await AsyncStorage.setItem("token", token);
+
+      if (user.role === "organizer") {
+        try {
+          const organizerRes = await axios.get(`${API_URL}/api/organizers/profile`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          const isVerified = organizerRes.data.organizer?.isVerified ?? false;
+
+          if (isVerified) {
+            router.replace("/(tabs-organisateur)/dashboard");
+          } else {
+            Alert.alert(
+              "Compte non vérifié",
+              "Votre compte organisateur n'est pas encore vérifié."
+            );
+            router.replace("/(tabs-client)/home");
+          }
+        } catch {
+          //console.error("Erreur récupération organisateur:", err.response?.data || err.message);
+          Alert.alert("Erreur", "Impossible de récupérer le profil organisateur.");
+        }
+      } else if (user.role === "user") {
+        router.replace("/(tabs-client)/home");
+      } else {
+        Alert.alert("Erreur", "Rôle inconnu !");
+      }
+    } catch (error: any) {
+      console.error("Erreur login:", error.response?.data || error.message);
+      Alert.alert("Erreur", error.response?.data?.message || "Échec de connexion");
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   const handleForgotPassword = () => {
-    Alert.alert(
-      "Mot de passe oublié",
-      "La fonctionnalité sera bientôt disponible."
-    );
+    router.push('/screens/forgot-password');
   };
 
   return (
@@ -99,22 +102,19 @@ const LoginScreen = () => {
             contentContainerStyle={{ paddingBottom: 60 }}
             showsVerticalScrollIndicator={false}
           >
-            {/* Logo & titre */}
             <Animated.View entering={FadeInUp.delay(100)} className="items-center mb-12">
               <Image
-                source={require('@/assets/logo.png')}
+                source={require('../../assets/logo.png')}
                 className="w-36 h-36"
                 accessibilityLabel="Logo EventMauritanie"
               />
               <Text className="text-gray-400 mt-2 text-xl">Votre billetterie en ligne</Text>
             </Animated.View>
 
-            {/* Titre "Connectez-vous" */}
             <Animated.View entering={FadeInUp.delay(200)} className="mb-10">
               <Text className="text-white text-4xl font-bold text-center">Connectez-vous</Text>
             </Animated.View>
 
-            {/* Email */}
             <Animated.View entering={FadeInUp.delay(300)} className="mb-8">
               <Text className="text-gray-400 mb-3 font-semibold text-lg">Email</Text>
               <View className="flex-row items-center bg-white/10 rounded-xl px-6 py-4">
@@ -131,29 +131,42 @@ const LoginScreen = () => {
               </View>
             </Animated.View>
 
-            {/* Mot de passe */}
             <Animated.View entering={FadeInUp.delay(400)} className="mb-10">
               <Text className="text-gray-400 mb-3 font-semibold text-lg">Mot de passe</Text>
+
               <View className="flex-row items-center bg-white/10 rounded-xl px-6 py-4">
                 <Ionicons name="lock-closed" size={28} color="#ec673b" className="mr-4" />
+
                 <TextInput
                   className="flex-1 text-white text-lg"
-                  placeholder="••••••••"
+                  placeholder="•••••••••"
                   placeholderTextColor="#9CA3AF"
-                  secureTextEntry
+                  secureTextEntry={!showPassword}   // 👈 clé ici
                   value={password}
                   onChangeText={setPassword}
                 />
+
+                {/* Bouton œil */}
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <Ionicons
+                    name={showPassword ? "eye-off" : "eye"}
+                    size={26}
+                    color="#9CA3AF"
+                  />
+                </TouchableOpacity>
               </View>
+
               <TouchableOpacity
                 className="self-end mt-3"
                 onPress={handleForgotPassword}
               >
-                <Text className="text-[#ec673b] font-semibold text-base">Mot de passe oublié?</Text>
+                <Text className="text-[#ec673b] font-semibold text-base">
+                  Mot de passe oublié?
+                </Text>
               </TouchableOpacity>
             </Animated.View>
 
-            {/* Bouton connexion */}
+
             <Animated.View entering={FadeInUp.delay(500)}>
               <TouchableOpacity
                 className="bg-[#ec673b] py-5 rounded-xl items-center mb-8 shadow-lg shadow-teal-600/70"
@@ -173,12 +186,11 @@ const LoginScreen = () => {
               <View className="flex-1 h-px bg-white/20" />
             </Animated.View>
 
-            {/* Inscription */}
             <Animated.View entering={FadeInUp.delay(800)} className="mt-10 flex-row justify-center">
-              <Text className="text-gray-400 font-semibold text-lg">Vous n'avez pas de compte?</Text>
+              <Text className="text-gray-400 font-semibold text-lg">{"Vous n'avez pas de compte?"}</Text>
               <Link href="/register" asChild>
                 <TouchableOpacity className="ml-3">
-                  <Text className="text-[#ec673b] font-bold underline text-lg">S'inscrire</Text>
+                  <Text className="text-[#ec673b] font-bold underline text-lg">{"S'inscrire"}</Text>
                 </TouchableOpacity>
               </Link>
             </Animated.View>

@@ -1,9 +1,9 @@
 import React from "react";
-import { View, Text, ScrollView, SafeAreaView } from "react-native";
+import {  Text, ScrollView } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import BackgroundWrapper from "@/components/BackgroundWrapper";
 
-const primaryColor = "#ec673b";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const privacyPolicyText = `
 Politique de confidentialité

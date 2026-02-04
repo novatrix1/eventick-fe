@@ -1,155 +1,221 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
+  ActivityIndicator,
   Alert,
-} from "react-native";
-import { StatusBar } from "expo-status-bar";
-import BackgroundWrapper from "@/components/BackgroundWrapper";
-import { Ionicons } from "@expo/vector-icons";
+  Image,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
+import BackgroundWrapper from '@/components/BackgroundWrapper';
+import Constants from 'expo-constants';
+import { StatusBar } from 'expo-status-bar';
+import { useUserInfo } from '@/hooks/useUserInfo';
 
-const primaryColor = "#ec673b";
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
+
+const SUBJECTS = [
+  'Problème de paiement',
+  'Billet non reçu',
+  'Compte / Profil',
+  'Événement',
+  'Bug technique',
+  'Autre',
+];
 
 const ContactSupportScreen = () => {
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    subject: "",
-    message: "",
-  });
+  const { userInfo } = useUserInfo();
 
-  const handleChange = (field: keyof typeof form, value: string) => {
-    setForm({ ...form, [field]: value });
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [image, setImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permission requise',
+        'Autorisez l’accès à la galerie.'
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setImage(result.assets[0].uri);
+    }
   };
 
-  const validateEmail = (email: string) => {
-    return /\S+@\S+\.\S+/.test(email);
-  };
-
-  const handleSubmit = () => {
-    if (!form.name.trim()) {
-      Alert.alert("Erreur", "Veuillez entrer votre nom");
-      return;
-    }
-    if (!validateEmail(form.email)) {
-      Alert.alert("Erreur", "Veuillez entrer un email valide");
-      return;
-    }
-    if (!form.subject.trim()) {
-      Alert.alert("Erreur", "Veuillez entrer un sujet");
-      return;
-    }
-    if (!form.message.trim()) {
-      Alert.alert("Erreur", "Veuillez entrer un message");
+  const handleSubmit = async () => {
+    if (!subject || !message) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
       return;
     }
 
-    // Ici tu peux intégrer l’envoi réel (API, email, etc.)
-    Alert.alert(
-      "Message envoyé",
-      "Merci de nous avoir contactés. Nous vous répondrons rapidement."
-    );
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem('token');
 
-    // Réinitialise le formulaire
-    setForm({ name: "", email: "", subject: "", message: "" });
+      const formData = new FormData();
+      formData.append('subject', subject);
+      formData.append('message', message);
+      formData.append('email', userInfo.email);
+
+      if (image) {
+        formData.append('attachment', {
+          uri: image,
+          type: 'image/jpeg',
+          name: 'support.jpg',
+        } as any);
+      }
+
+      await axios.post(
+        `${API_URL}/api/support/contact`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      Alert.alert(
+        'Message envoyé',
+        'Notre équipe vous répondra rapidement.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } catch (err) {
+      console.error(err);
+      Alert.alert(
+        'Erreur',
+        'Impossible d’envoyer votre message.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <BackgroundWrapper>
-      <SafeAreaView className="flex-1" edges={["top"]}>
+      <SafeAreaView className="flex-1">
         <StatusBar style="light" />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          className="flex-1"
+
+        <ScrollView
+          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
         >
-          <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 30, paddingBottom: 60 }}
-            keyboardShouldPersistTaps="handled"
-          >
-            <Text className="text-white text-2xl font-bold mb-8">
-              Contacter le support
-            </Text>
-
-            <View className="mb-6">
-              <Text className="text-white mb-2 font-semibold">Nom complet</Text>
-              <View className="flex-row items-center bg-white/10 rounded-xl border border-white/10 px-4">
-                <Ionicons name="person" size={20} color="#ccc" />
-                <TextInput
-                  placeholder="Votre nom complet"
-                  placeholderTextColor="#ccc"
-                  value={form.name}
-                  onChangeText={(text) => handleChange("name", text)}
-                  className="flex-1 text-white px-3 py-3 text-lg"
-                  autoCorrect={false}
-                  autoCapitalize="words"
-                />
-              </View>
-            </View>
-
-            <View className="mb-6">
-              <Text className="text-white mb-2 font-semibold">Email</Text>
-              <View className="flex-row items-center bg-white/10 rounded-xl border border-white/10 px-4">
-                <Ionicons name="mail" size={20} color="#ccc" />
-                <TextInput
-                  placeholder="Votre adresse email"
-                  placeholderTextColor="#ccc"
-                  value={form.email}
-                  onChangeText={(text) => handleChange("email", text)}
-                  keyboardType="email-address"
-                  className="flex-1 text-white px-3 py-3 text-lg"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
-            </View>
-
-            <View className="mb-6">
-              <Text className="text-white mb-2 font-semibold">Sujet</Text>
-              <View className="flex-row items-center bg-white/10 rounded-xl border border-white/10 px-4">
-                <Ionicons name="document-text" size={20} color="#ccc" />
-                <TextInput
-                  placeholder="Sujet de votre demande"
-                  placeholderTextColor="#ccc"
-                  value={form.subject}
-                  onChangeText={(text) => handleChange("subject", text)}
-                  className="flex-1 text-white px-3 py-3 text-lg"
-                  autoCorrect={false}
-                />
-              </View>
-            </View>
-
-            <View className="mb-8">
-              <Text className="text-white mb-2 font-semibold">Message</Text>
-              <View className="bg-white/10 rounded-xl border border-white/10 px-4">
-                <TextInput
-                  placeholder="Écrivez votre message ici..."
-                  placeholderTextColor="#ccc"
-                  value={form.message}
-                  onChangeText={(text) => handleChange("message", text)}
-                  multiline
-                  numberOfLines={6}
-                  textAlignVertical="top"
-                  className="text-white px-3 py-3 text-lg"
-                />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              className="py-4 rounded-xl items-center"
-              style={{ backgroundColor: primaryColor }}
-              onPress={handleSubmit}
-              activeOpacity={0.8}
-            >
-              <Text className="text-white font-bold text-lg">Envoyer</Text>
+          {/* Header */}
+          <View className="flex-row items-center mb-8">
+            <TouchableOpacity onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={26} color="white" />
             </TouchableOpacity>
+            <Text className="text-white text-3xl font-extrabold ml-4">
+              Contact Support
+            </Text>
+          </View>
+
+          {/* Email */}
+          <Text className="text-gray-400 mb-2">Email</Text>
+          <TextInput
+            value={userInfo.email}
+            editable={false}
+            className="bg-white/10 text-gray-300 px-5 py-4 rounded-xl mb-6"
+          />
+
+          {/* Sujet */}
+          <Text className="text-teal-400 mb-2 font-medium">
+            Sujet
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {SUBJECTS.map(item => (
+              <TouchableOpacity
+                key={item}
+                onPress={() => setSubject(item)}
+                className={`px-4 py-2 mr-3 rounded-full ${subject === item
+                    ? 'bg-[#ec673b]'
+                    : 'bg-white/10'
+                  }`}
+              >
+                <Text className="text-white text-sm">{item}</Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
-        </KeyboardAvoidingView>
+
+          {/* Message */}
+          <Text className="text-teal-400 mt-8 mb-2 font-medium">
+            Message
+          </Text>
+          <TextInput
+            multiline
+            numberOfLines={5}
+            placeholder="Expliquez votre problème en détail..."
+            placeholderTextColor="#999"
+            value={message}
+            onChangeText={setMessage}
+            className="bg-white/10 text-white px-5 py-4 rounded-xl"
+          />
+
+          {/* Image */}
+          <Text className="text-teal-400 mt-8 mb-3 font-medium">
+            Pièce jointe (optionnel)
+          </Text>
+
+          {image ? (
+            <View className="relative mb-5">
+              <Image
+                source={{ uri: image }}
+                className="w-full h-48 rounded-xl"
+              />
+              <TouchableOpacity
+                className="absolute top-2 right-2 bg-black/60 p-2 rounded-full"
+                onPress={() => setImage(null)}
+              >
+                <Ionicons name="close" size={18} color="white" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={pickImage}
+              className="bg-teal-400/20 py-4 rounded-xl flex-row justify-center items-center mb-6"
+            >
+              <Ionicons name="image" size={22} color="#68f2f4" />
+              <Text className="text-teal-400 ml-2 font-medium">
+                Ajouter une image
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Submit */}
+          <TouchableOpacity
+            onPress={handleSubmit}
+            disabled={loading}
+            className={`py-4 rounded-xl items-center ${loading ? 'bg-gray-500' : 'bg-[#ec673b]'
+              }`}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text className="text-white font-bold text-lg">
+                Envoyer le message
+              </Text>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
       </SafeAreaView>
     </BackgroundWrapper>
   );

@@ -4,16 +4,13 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   Linking,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import BackgroundWrapper from "@/components/BackgroundWrapper";
-
-const primaryColor = "#ec673b";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type DocumentStatus = "pending" | "validated" | "rejected";
 
@@ -29,20 +26,20 @@ interface LegalDocument {
 const requiredDocumentsInitial: LegalDocument[] = [
   {
     id: "id_card",
-    title: "Pièce d’identité",
-    description: "Carte nationale d’identité ou passeport",
+    title: "Pièce d'identité",
+    description: "Carte nationale d'identité ou passeport",
     status: "pending",
   },
   {
     id: "license",
-    title: "Licence d’organisation",
-    description: "Licence ou autorisation officielle d’organisateur d’événements",
+    title: "Licence d'organisation",
+    description: "Licence ou autorisation officielle d'organisateur d'événements",
     status: "pending",
   },
   {
     id: "company_registration",
-    title: "Certificat d’enregistrement",
-    description: "Certificat d’enregistrement légal de l’entreprise",
+    title: "Certificat d'enregistrement",
+    description: "Certificat d'enregistrement légal de l'entreprise",
     status: "pending",
   },
   {
@@ -56,16 +53,19 @@ const requiredDocumentsInitial: LegalDocument[] = [
 export default function DocumentsLegauxScreen() {
   const [documents, setDocuments] = useState<LegalDocument[]>(requiredDocumentsInitial);
 
-  // Ouvre un fichier avec l'app native si possible
   const openFile = async (uri: string) => {
     try {
-      await Linking.openURL(uri);
+      const canOpen = await Linking.canOpenURL(uri);
+      if (canOpen) {
+        await Linking.openURL(uri);
+      } else {
+        Alert.alert("Erreur", "Impossible d'ouvrir ce type de document");
+      }
     } catch {
       Alert.alert("Erreur", "Impossible d'ouvrir le document");
     }
   };
 
-  // Choisir un fichier pour un document donné
   const pickDocument = async (docId: string) => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -73,23 +73,29 @@ export default function DocumentsLegauxScreen() {
         copyToCacheDirectory: true,
       });
 
-      if (result.type === "success") {
-        // Met à jour le document avec le fichier sélectionné et remet status en pending (à valider)
+      // Vérification du type de résultat avec la nouvelle API de DocumentPicker
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
         setDocuments((docs) =>
           docs.map((doc) =>
             doc.id === docId
-              ? { ...doc, fileUri: result.uri, status: "pending", feedback: undefined }
+              ? { 
+                  ...doc, 
+                  fileUri: asset.uri, 
+                  status: "pending" as DocumentStatus, 
+                  feedback: undefined 
+                }
               : doc
           )
         );
         Alert.alert("Succès", "Document téléversé, en attente de validation.");
       }
     } catch (error) {
+      console.error("Erreur lors de la sélection du document:", error);
       Alert.alert("Erreur", "Une erreur est survenue lors de la sélection du document.");
     }
   };
 
-  // Affichage de l'état sous forme texte coloré
   const renderStatus = (status: DocumentStatus) => {
     switch (status) {
       case "pending":
@@ -98,6 +104,8 @@ export default function DocumentsLegauxScreen() {
         return <Text className="text-green-400 font-semibold">Validé ✓</Text>;
       case "rejected":
         return <Text className="text-red-500 font-semibold">Rejeté ✗</Text>;
+      default:
+        return <Text className="text-gray-400 font-semibold">Inconnu</Text>;
     }
   };
 
@@ -155,7 +163,7 @@ export default function DocumentsLegauxScreen() {
             </View>
           ))}
 
-          <Text className="text-gray-400 text-sm italic text-center">
+          <Text className="text-gray-400 text-sm italic text-center mt-4">
             * Les documents doivent être au format PDF ou image, taille maximale 5 Mo.
           </Text>
         </ScrollView>

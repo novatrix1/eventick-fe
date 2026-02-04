@@ -1,33 +1,73 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, Animated, Dimensions, StyleSheet } from 'react-native';
-import { CameraView, Camera } from 'expo-camera';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  Animated,
+  StyleSheet,
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
+import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import Constants from 'expo-constants';
+import { useRouter } from 'expo-router';
 
-// Importation directe du fichier JSON
-import initialQRCodes from '@/assets/qrcodes/qrcodes.json';
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
 
-const { width, height } = Dimensions.get('window');
+interface TicketData {
+  ticketRef: string;
+  ticketNumber: string;
+  event: string;
+  usedAt?: string;
+}
 
-const ScanScreen = () => {
-  const [hasPermission, setHasPermission] = useState(null);
-  const [scanResult, setScanResult] = useState(null);
-  const [qrCodes, setQrCodes] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [lastScanned, setLastScanned] = useState(null);
-  const [flashMode, setFlashMode] = useState('off');
+interface ValidationData {
+  message: string;
+  ticket?: TicketData;
+}
+
+const ScanScreen: React.FC = () => {
+  const router = useRouter();
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [scanResult, setScanResult] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  const cameraRef = useRef(null);
-  const resultTimeoutRef = useRef(null);
-  const recentlyScanned = useRef(new Set());
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  // CORRECTION: Le type FlashMode n'inclut PAS 'torch'
+  // Utilisez 'off' | 'on' | 'auto' selon le type FlashMode
+  const [flashMode, setFlashMode] = useState<'off' | 'on' | 'auto'>('off');
+  
+  // Ajoutez un état séparé pour la lampe torche
+  const [torchEnabled, setTorchEnabled] = useState<boolean>(false);
+  
+  const [permission, requestPermission] = useCameraPermissions();
+  const [validationModalVisible, setValidationModalVisible] = useState<boolean>(false);
+  const [validationData, setValidationData] = useState<ValidationData | null>(null);
+  const [isActive, setIsActive] = useState(true);
+  
+  const cameraRef = useRef<CameraView>(null);
   const scanLineAnim = useRef(new Animated.Value(0)).current;
-  const lastUsedRef = useRef({});
 
-  // Animation de la ligne de scan
+  // Gère l'état actif de l'écran
+  useFocusEffect(
+    useCallback(() => {
+      setIsActive(true);
+      return () => {
+        setIsActive(false);
+      };
+    }, [])
+  );
+
+  // Animation pour la ligne de scan
   useEffect(() => {
-    Animated.loop(
+    if (!isActive) return;
+    
+    const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(scanLineAnim, {
           toValue: 1,
@@ -40,216 +80,111 @@ const ScanScreen = () => {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    
+    animation.start();
 
     return () => {
-      scanLineAnim.stopAnimation();
+      animation.stop();
     };
-  }, []);
+  }, [scanLineAnim, isActive]);
 
+  // Demande de permission pour la caméra
   useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-      loadQRCodes();
-      setIsLoading(false);
-    })();
-
-    return () => {
-      if (resultTimeoutRef.current) {
-        clearTimeout(resultTimeoutRef.current);
+    const getCameraPermission = async () => {
+      if (!permission?.granted) {
+        const { status } = await requestPermission();
+        setHasPermission(status === 'granted');
+      } else {
+        setHasPermission(true);
       }
     };
-  }, []);
 
-  const loadQRCodes = () => {
+    getCameraPermission();
+  }, [permission, requestPermission]);
+
+  // Validation du ticket via l'API
+  const validateTicket = async (encryptedData: string): Promise<void> => {
+    if (!isActive) return;
+    
+    setIsLoading(true);
     try {
-      const initialLastUsed = {};
-      initialQRCodes.forEach(code => {
-        if (code.lastUsed) {
-          initialLastUsed[code.id] = code.lastUsed;
-        }
-      });
-      lastUsedRef.current = initialLastUsed;
+      const token = await AsyncStorage.getItem('token');
       
-      setQrCodes(initialQRCodes);
-    } catch (error) {
-      console.error('Erreur lors du chargement des QR codes:', error);
-      Alert.alert('Erreur', 'Impossible de charger les QR codes');
-    }
-  };
-
-  const showTemporaryResult = (result) => {
-    setScanResult(result);
-    setLastScanned(new Date());
-    
-    // Animation d'apparition
-    Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 2500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    
-    // Nettoyer après 3 secondes
-    if (resultTimeoutRef.current) {
-      clearTimeout(resultTimeoutRef.current);
-    }
-    
-    resultTimeoutRef.current = setTimeout(() => {
-      setScanResult(null);
-    }, 3100);
-  };
-
-  const formatLastUsed = (timestamp) => {
-    if (!timestamp) return 'Jamais utilisé';
-    
-    const now = new Date();
-    const lastUsed = new Date(timestamp);
-    const diffTime = Math.abs(now - lastUsed);
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
-    const diffMinutes = Math.floor(diffTime / (1000 * 60));
-    
-    if (diffDays > 0) {
-      return `Il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
-    } else if (diffHours > 0) {
-      return `Il y a ${diffHours} heure${diffHours > 1 ? 's' : ''}`;
-    } else if (diffMinutes > 0) {
-      return `Il y a ${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
-    } else {
-      return 'À l\'instant';
-    }
-  };
-
-  const handleBarCodeScanned = ({ data }) => {
-    const cleanData = data.trim();
-    const now = Date.now();
-    
-    if (recentlyScanned.current.has(cleanData)) {
-      console.log('Code déjà scanné récemment, ignoré:', cleanData);
-      return;
-    }
-    
-    recentlyScanned.current.add(cleanData);
-    
-    setTimeout(() => {
-      recentlyScanned.current.delete(cleanData);
-    }, 3000);
-    
-    const foundCode = qrCodes.find(code => code.id === cleanData);
-    
-    if (foundCode) {
-      if (foundCode.used) {
-        const lastUsed = lastUsedRef.current[cleanData] || foundCode.lastUsed;
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        showTemporaryResult({ 
-          status: 'used', 
-          data: cleanData,
-          lastUsed: lastUsed 
-        });
-      } else {
-        const updatedQrCodes = qrCodes.map(code => 
-          code.id === cleanData ? { ...code, used: true, lastUsed: now } : code
-        );
-        
-        lastUsedRef.current[cleanData] = now;
-        
-        setQrCodes(updatedQrCodes);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showTemporaryResult({ 
-          status: 'valid', 
-          data: cleanData,
-          lastUsed: now 
-        });
+      if (!token) {
+        Alert.alert('Erreur', 'Token non trouvé. Veuillez vous reconnecter.');
+        setIsLoading(false);
+        return;
       }
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showTemporaryResult({ status: 'invalid', data: cleanData });
-    }
-  };
 
-  const generateNewQRCode = () => {
-    try {
-      const newId = `ticket-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const newQRCode = { id: newId, used: false };
-      
-      setQrCodes(prev => [...prev, newQRCode]);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      Alert.alert('Succès', 'Nouveau QR code généré avec succès');
+      const response = await fetch(`${API_URL}/api/tickets/scan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ encryptedData }),
+      });
+
+      const data: ValidationData = await response.json();
+
+      if (response.ok) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setValidationData(data);
+        setValidationModalVisible(true);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert(
+          'Erreur de validation',
+          data.message || 'Une erreur est survenue lors de la validation du billet'
+        );
+      }
     } catch (error) {
-      console.error('Erreur lors de la génération du QR code:', error);
-      Alert.alert('Erreur', 'Impossible de générer un nouveau QR code');
+      console.error('Erreur:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        'Erreur',
+        'Impossible de valider le billet. Vérifiez votre connexion internet.'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const resetAllQRCodes = () => {
-    Alert.alert(
-      'Confirmation',
-      'Êtes-vous sûr de vouloir réinitialiser tous les QR codes?',
-      [
-        {
-          text: 'Annuler',
-          style: 'cancel',
-        },
-        {
-          text: 'Réinitialiser',
-          onPress: () => {
-            try {
-              const resetQrCodes = qrCodes.map(code => ({ 
-                ...code, 
-                used: false,
-                lastUsed: null 
-              }));
-              
-              lastUsedRef.current = {};
-              
-              setQrCodes(resetQrCodes);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-              Alert.alert('Succès', 'Tous les QR codes ont été réinitialisés');
-            } catch (error) {
-              console.error('Erreur lors de la réinitialisation:', error);
-              Alert.alert('Erreur', 'Impossible de réinitialiser les QR codes');
-            }
-          },
-        },
-      ]
-    );
+  // Gestion du scan de code QR
+  const handleBarCodeScanned = ({ data }: BarcodeScanningResult): void => {
+    if (isLoading || !isActive) return;
+    
+    const cleanData = data.trim();
+    setScanResult(cleanData);
+    validateTicket(cleanData);
   };
 
+  // CORRECTION: Basculer entre flash et lampe torche
   const toggleFlash = () => {
-    setFlashMode(flashMode === 'off' ? 'torch' : 'off');
+    if (flashMode === 'off') {
+      // Active la lampe torche
+      setTorchEnabled(true);
+      setFlashMode('off'); // Gardez flashMode à 'off' car torch est séparé
+    } else {
+      // Désactive tout
+      setTorchEnabled(false);
+      setFlashMode('off');
+    }
   };
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <LinearGradient
-          colors={['#001215', '#00252a', '#00343a', '#006873']}
-          locations={[0, 0.3, 0.6, 1]}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.9, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={styles.loadingContent}>
-          <View style={styles.spinner} />
-          <Text style={styles.loadingText}>Chargement des QR codes...</Text>
-        </View>
-      </View>
-    );
-  }
+  // Fermer le modal de validation
+  const closeValidationModal = (): void => {
+    setValidationModalVisible(false);
+    setValidationData(null);
+    setScanResult(null);
+  };
 
+  const handleBack = () => {
+    router.back();
+  };
+
+  // Écrans d'état pour les permissions
   if (hasPermission === null) {
     return (
       <View style={styles.loadingContainer}>
@@ -260,7 +195,8 @@ const ScanScreen = () => {
           end={{ x: 0.9, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <Text style={styles.loadingText}>Demande d'autorisation pour la caméra...</Text>
+        <ActivityIndicator size="large" color="#68f2f4" />
+        <Text style={styles.loadingText}>Demande {"d'autorisation"} pour la caméra...</Text>
       </View>
     );
   }
@@ -275,9 +211,23 @@ const ScanScreen = () => {
           end={{ x: 0.9, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <Ionicons name="camera-off" size={64} color="white" />
+        <Ionicons name="camera-outline" size={64} color="white" />
         <Text style={styles.errorTitle}>Accès à la caméra refusé</Text>
-        <Text style={styles.errorSubtitle}>Veuillez autoriser l'accès à la caméra dans les paramètres de votre appareil</Text>
+        <Text style={styles.errorSubtitle}>
+          {"Veuillez autoriser l'accès à la caméra dans les paramètres de votre appareil"}
+        </Text>
+        <TouchableOpacity
+          style={styles.permissionButton}
+          onPress={requestPermission}
+        >
+          <Text style={styles.permissionButtonText}>Demander à nouveau</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.permissionButton, { marginTop: 10, backgroundColor: '#006873' }]}
+          onPress={handleBack}
+        >
+          <Text style={styles.permissionButtonText}>Retour</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -294,142 +244,154 @@ const ScanScreen = () => {
       
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={handleBack}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Scanner de Tickets</Text>
-        <Text style={styles.headerSubtitle}>Scannez vos codes QR</Text>
+        <View style={styles.headerRight} />
       </View>
 
-      {/* Scanner Content */}
-      <View style={styles.scannerContainer}>
-        <View style={styles.cameraWrapper}>
-          <CameraView
-            ref={cameraRef}
-            style={styles.camera}
-            onBarcodeScanned={handleBarCodeScanned}
-            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-            flashMode={flashMode}
-          />
-          
-          {/* Overlay avec cadre de scan */}
-          <View style={styles.overlay}>
-            {/* Top overlay */}
-            <View style={styles.topOverlay}>
-              <Text style={styles.overlayText}>Positionnez le QR code dans le cadre</Text>
-              {lastScanned && (
-                <Text style={styles.lastScannedText}>
-                  Dernier scan: {lastScanned.toLocaleTimeString()}
-                </Text>
-              )}
-            </View>
+      {/* Zone du scanner - seulement si actif */}
+      {isActive && (
+        <View style={styles.scannerContainer}>
+          <View style={styles.cameraWrapper}>
+            <CameraView
+              ref={cameraRef}
+              style={styles.camera}
+              onBarcodeScanned={handleBarCodeScanned}
+              barcodeScannerSettings={{ 
+                barcodeTypes: ['qr', 'pdf417', 'aztec', 'codabar'] 
+              }}
+              flash={flashMode} // Utilise flashMode (off | on | auto)
+              enableTorch={torchEnabled} // CORRECTION: Utilise enableTorch pour la lampe torche
+            />
             
-            {/* Middle overlay avec cadre de scan */}
-            <View style={styles.middleOverlay}>
-              <View style={styles.focusBox}>
-                {/* Coins décoratifs */}
-                <View style={[styles.corner, styles.cornerTopLeft]} />
-                <View style={[styles.corner, styles.cornerTopRight]} />
-                <View style={[styles.corner, styles.cornerBottomLeft]} />
-                <View style={[styles.corner, styles.cornerBottomRight]} />
-                
-                {/* Ligne de scan animée */}
-                <Animated.View 
-                  style={[
-                    styles.scanLine,
-                    {
-                      transform: [{
-                        translateY: scanLineAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0, 250]
-                        })
-                      }]
-                    }
-                  ]}
-                />
+            {/* Overlay avec cadre de scan */}
+            <View style={styles.overlay}>
+              <View style={styles.topOverlay}>
+                <Text style={styles.overlayText}>Positionnez le QR code dans le cadre</Text>
               </View>
-            </View>
-            
-            {/* Bottom overlay avec boutons */}
-            <View style={styles.bottomOverlay}>
-              <View style={styles.buttonRow}>
+              
+              <View style={styles.middleOverlay}>
+                <View style={styles.focusBox}>
+                  {/* Coins du cadre */}
+                  <View style={[styles.corner, styles.cornerTopLeft]} />
+                  <View style={[styles.corner, styles.cornerTopRight]} />
+                  <View style={[styles.corner, styles.cornerBottomLeft]} />
+                  <View style={[styles.corner, styles.cornerBottomRight]} />
+                  
+                  {/* Ligne de scan animée */}
+                  <Animated.View 
+                    style={[
+                      styles.scanLine,
+                      {
+                        transform: [{
+                          translateY: scanLineAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 250]
+                          })
+                        }]
+                      }
+                    ]}
+                  />
+                </View>
+              </View>
+              
+              <View style={styles.bottomOverlay}>
                 <TouchableOpacity 
                   onPress={toggleFlash}
                   style={styles.iconButton}
                 >
                   <Ionicons 
-                    name={flashMode === 'off' ? 'flash-off' : 'flash'} 
+                    // CORRECTION: Vérifiez si la lampe torche est activée
+                    name={torchEnabled ? 'flash' : 'flash-off'} 
                     size={24} 
                     color="white" 
                   />
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  onPress={generateNewQRCode}
-                  style={styles.actionButton}
-                >
-                  <Ionicons name="add" size={30} color="white" />
-                  <Text style={styles.buttonLabel}>Nouveau</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  onPress={resetAllQRCodes}
-                  style={styles.actionButton}
-                >
-                  <Ionicons name="refresh" size={24} color="white" />
-                  <Text style={styles.buttonLabel}>Réinit</Text>
-                </TouchableOpacity>
               </View>
             </View>
-          </View>
-          
-          {/* Bannière de résultat */}
-          {scanResult && (
-            <Animated.View 
-              style={[
-                styles.resultBanner,
-                { opacity: fadeAnim },
-                scanResult.status === 'valid' && styles.validBanner,
-                scanResult.status === 'used' && styles.usedBanner,
-                scanResult.status === 'invalid' && styles.invalidBanner,
-              ]}
-            >
-              <View style={styles.resultContent}>
-                {scanResult.status === 'valid' && (
-                  <Ionicons name="checkmark-circle" size={28} color="white" />
-                )}
-                {scanResult.status === 'used' && (
-                  <Ionicons name="time" size={28} color="white" />
-                )}
-                {scanResult.status === 'invalid' && (
-                  <Ionicons name="close-circle" size={28} color="white" />
-                )}
-                <View style={styles.resultTextContainer}>
-                  <Text style={styles.resultTitle}>
-                    {scanResult.status === 'valid' && 'Ticket valide et marqué comme utilisé'}
-                    {scanResult.status === 'used' && 'Ticket déjà utilisé'}
-                    {scanResult.status === 'invalid' && 'Ticket invalide'}
-                  </Text>
-                  
-                  <Text style={styles.resultData} numberOfLines={1}>
-                    {scanResult.data}
-                  </Text>
-                  
-                  {(scanResult.status === 'used' || scanResult.status === 'valid') && scanResult.lastUsed && (
-                    <Text style={styles.lastUsedText}>
-                      {scanResult.status === 'valid' 
-                        ? 'Marqué comme utilisé maintenant' 
-                        : `Dernière utilisation: ${formatLastUsed(scanResult.lastUsed)}`
-                      }
-                    </Text>
-                  )}
-                </View>
+            
+            {/* Overlay de chargement */}
+            {isLoading && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color="#ec673b" />
+                <Text style={styles.loadingText}>Validation en cours...</Text>
               </View>
-            </Animated.View>
-          )}
+            )}
+          </View>
         </View>
-      </View>
+      )}
+
+      {/* Modal de résultat de validation */}
+      <Modal
+        visible={validationModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeValidationModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {validationData?.message || 'Résultat de validation'}
+              </Text>
+              <TouchableOpacity onPress={closeValidationModal}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            {validationData?.ticket && (
+              <View style={styles.validationDetails}>
+                <View style={styles.detailRow}>
+                  <Ionicons name="ticket-outline" size={20} color="#ec673b" />
+                  <Text style={styles.detailText}>
+                    Référence: {validationData.ticket.ticketRef}
+                  </Text>
+                </View>
+                
+                <View style={styles.detailRow}>
+                  <Ionicons name="pricetag-outline" size={20} color="#ec673b" />
+                  <Text style={styles.detailText}>
+                    Numéro: {validationData.ticket.ticketNumber}
+                  </Text>
+                </View>
+                
+                <View style={styles.detailRow}>
+                  <Ionicons name="calendar-outline" size={20} color="#ec673b" />
+                  <Text style={styles.detailText}>
+                    Événement: {validationData.ticket.event}
+                  </Text>
+                </View>
+                
+                {validationData.ticket.usedAt && (
+                  <View style={styles.detailRow}>
+                    <Ionicons name="time-outline" size={20} color="#ec673b" />
+                    <Text style={styles.detailText}>
+                      Utilisé le: {new Date(validationData.ticket.usedAt).toLocaleString('fr-FR')}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={closeValidationModal}
+            >
+              <Text style={styles.closeButtonText}>Fermer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
+// Les styles restent les mêmes...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -439,53 +401,66 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  spinner: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 4,
-    borderColor: 'white',
-    borderTopColor: 'transparent',
-    marginRight: 12,
+    padding: 20,
   },
   loadingText: {
     color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    marginTop: 16,
+    textAlign: 'center',
   },
   errorTitle: {
     color: 'white',
     fontSize: 18,
+    fontWeight: 'bold',
     marginTop: 16,
     textAlign: 'center',
   },
   errorSubtitle: {
     color: '#68f2f4',
+    fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
+    paddingHorizontal: 20,
+    lineHeight: 20,
+  },
+  permissionButton: {
+    marginTop: 20,
+    backgroundColor: '#ec673b',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  permissionButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   header: {
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
+  backButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: 'bold',
     color: 'white',
-    textAlign: 'center',
   },
-  headerSubtitle: {
-    color: '#68f2f4',
-    textAlign: 'center',
-    marginTop: 4,
-    fontSize: 16,
+  headerRight: {
+    width: 40,
   },
   scannerContainer: {
     flex: 1,
@@ -512,18 +487,13 @@ const styles = StyleSheet.create({
   overlayText: {
     color: 'white',
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-  },
-  lastScannedText: {
-    color: '#68f2f4',
-    textAlign: 'center',
-    fontSize: 12,
-    marginTop: 4,
   },
   middleOverlay: {
     justifyContent: 'center',
     alignItems: 'center',
+    flex: 1,
   },
   focusBox: {
     width: 250,
@@ -533,6 +503,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: 'transparent',
     position: 'relative',
+    overflow: 'hidden',
   },
   corner: {
     position: 'absolute',
@@ -542,29 +513,29 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   cornerTopLeft: {
-    top: -4,
-    left: -4,
+    top: -2,
+    left: -2,
     borderTopWidth: 4,
     borderLeftWidth: 4,
     borderTopLeftRadius: 6,
   },
   cornerTopRight: {
-    top: -4,
-    right: -4,
+    top: -2,
+    right: -2,
     borderTopWidth: 4,
     borderRightWidth: 4,
     borderTopRightRadius: 6,
   },
   cornerBottomLeft: {
-    bottom: -4,
-    left: -4,
+    bottom: -2,
+    left: -2,
     borderBottomWidth: 4,
     borderLeftWidth: 4,
     borderBottomLeftRadius: 6,
   },
   cornerBottomRight: {
-    bottom: -4,
-    right: -4,
+    bottom: -2,
+    right: -2,
     borderBottomWidth: 4,
     borderRightWidth: 4,
     borderBottomRightRadius: 6,
@@ -575,16 +546,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#68f2f4',
     borderRadius: 2,
     position: 'absolute',
+    left: 0,
   },
   bottomOverlay: {
     width: '100%',
-    paddingBottom: 10,
+    paddingBottom: 40,
     paddingHorizontal: 40,
     backgroundColor: 'rgba(0, 18, 21, 0.7)',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
   iconButton: {
@@ -596,68 +564,82 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#68f2f4',
-  },
-  actionButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(0, 104, 115, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#68f2f4',
-  },
-  buttonLabel: {
-    color: 'white',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  resultBanner: {
-    position: 'absolute',
-    top: 150,
-    left: 20,
-    right: 20,
-    borderRadius: 16,
-    padding: 16,
+    elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
   },
-  validBanner: {
-    backgroundColor: 'rgba(16, 185, 129, 0.9)',
-  },
-  usedBanner: {
-    backgroundColor: 'rgba(245, 158, 11, 0.9)',
-  },
-  invalidBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.9)',
-  },
-  resultContent: {
-    flexDirection: 'row',
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  resultTextContainer: {
-    marginLeft: 12,
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    flex: 1,
+    marginRight: 10,
+    color: '#333',
+  },
+  validationDetails: {
+    marginBottom: 20,
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  detailText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#333',
     flex: 1,
   },
-  resultTitle: {
+  closeButton: {
+    backgroundColor: '#ec673b',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  closeButtonText: {
     color: 'white',
-    fontSize: 16,
     fontWeight: 'bold',
-  },
-  resultData: {
-    color: 'white',
-    fontSize: 14,
-    marginTop: 4,
-    fontFamily: 'monospace',
-  },
-  lastUsedText: {
-    color: 'white',
-    fontSize: 12,
-    marginTop: 4,
-    opacity: 0.9,
+    fontSize: 16,
   },
 });
 

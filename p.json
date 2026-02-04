@@ -1,0 +1,71 @@
+{
+    "message": "Utilisateurs récupérés avec succès",
+    "count": 5,
+    "users": [
+        {
+            "_id": "68a26e2b73e6cc96dfcdf272",
+            "name": "admin",
+            "email": "admin@gmail.com",
+            "phone": "22200000000",
+            "role": "admin",
+            "isVerified": true,
+            "registrationStatus": "completed",
+            "registrationStartedAt": "2025-08-18T00:04:59.370Z",
+            "createdAt": "2025-08-18T00:04:59.371Z",
+            "updatedAt": "2025-08-18T00:07:03.392Z",
+            "__v": 0
+        },
+        {
+            "_id": "68a2967f04781a1639059c2e",
+            "name": "Amadou Sow",
+            "email": "sow.amadou-ibrahima@ugb.edu.sn",
+            "phone": "44102775",
+            "role": "organizer",
+            "isVerified": true,
+            "registrationStatus": "completed",
+            "registrationStartedAt": "2025-08-18T02:57:03.082Z",
+            "createdAt": "2025-08-18T02:57:03.083Z",
+            "updatedAt": "2025-08-18T04:31:08.004Z",
+            "__v": 0
+        },
+        {
+            "_id": "68a2c21ee46180b509c6b0a3",
+            "name": "Amadou",
+            "email": "komipullo01@gmail.com",
+            "phone": "64684646",
+            "role": "organizer",
+            "isVerified": true,
+            "registrationStatus": "completed",
+            "registrationStartedAt": "2025-08-18T06:05:02.333Z",
+            "createdAt": "2025-08-18T06:03:10.041Z",
+            "updatedAt": "2025-08-19T22:58:44.095Z",
+            "__v": 0
+        },
+        {
+            "_id": "68ab6c945f2a89c745d93c4a",
+            "name": "Ars Prod 2",
+            "email": "arsprod01@gmail.com",
+            "phone": "420484646",
+            "role": "user",
+            "isVerified": true,
+            "registrationStatus": "completed",
+            "registrationStartedAt": "2025-08-24T19:48:36.192Z",
+            "createdAt": "2025-08-24T19:48:36.282Z",
+            "updatedAt": "2025-10-20T23:08:42.965Z",
+            "__v": 0
+        },
+        {
+            "_id": "68ab88548a53e215489d2ed2",
+            "name": "Amadou Sow",
+            "email": "contact@amadousow.dev",
+            "phone": "248489584",
+            "role": "organizer",
+            "isVerified": true,
+            "registrationStatus": "completed",
+            "registrationStartedAt": "2025-08-24T21:47:00.959Z",
+            "createdAt": "2025-08-24T21:47:00.960Z",
+            "updatedAt": "2025-08-24T21:48:35.701Z",
+            "__v": 0
+        }
+    ]
+}

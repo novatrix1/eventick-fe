@@ -1,65 +1,68 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, TextInput, ScrollView, Image, Animated, Platform, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, TextInput, ScrollView, Image, Animated, Platform, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BackgroundWrapper from '@/components/BackgroundWrapper';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-// Types
-type EventStatus = 'published' | 'draft' | 'completed';
-
-interface TicketType {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  sold: number;
-}
+const { API_URL } = (Constants.expoConfig?.extra || {}) as { API_URL: string };
 
 interface Event {
-  id: string;
+  _id: string;
   title: string;
+  description: string;
+  location: string;
   date: string;
   time: string;
-  location: string;
-  tickets: TicketType[];
-  category: string;
-  image?: any;
-  status: EventStatus;
   totalTickets: number;
   availableTickets: number;
-  description: string;
+  image: string | null;
+  category: string;
+  city: string;
+  organizer: string;
   isActive: boolean;
-  totalRevenue?: number;
+  paymentMethods: string[];
+  createdAt: string;
+  updatedAt: string;
+  ticketsSold: number;
+  revenue: number;
+  tickets: Array<{
+    type: string;
+    price: number;
+    totalTickets: number;
+    availableTickets: number;
+    sold: number;
+    revenue: number;
+    description: string;
+  }>;
 }
 
 const OrganizerEvents = () => {
   const router = useRouter();
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
-  const [selectedStatus, setSelectedStatus] = useState<EventStatus | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'active' | 'inactive' | 'all'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState<'events' | 'tickets' | 'analytics'>('events');
   const [isSortModalVisible, setIsSortModalVisible] = useState(false);
-  const [sortOption, setSortOption] = useState<'date' | 'popularity' | 'revenue'>('date');
+  const [sortOption, setSortOption] = useState<'date' | 'sales' | 'revenue'>('date');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
 
-  // Catégories pour les filtres
   const categories = [
     { id: 'all', name: 'Toutes catégories', icon: 'grid' },
     { id: 'Concert', name: 'Concert', icon: 'musical-notes' },
     { id: 'Sport', name: 'Sport', icon: 'football' },
     { id: 'Culture', name: 'Culture', icon: 'brush' },
     { id: 'Business', name: 'Business', icon: 'briefcase' },
+    { id: 'Education', name: 'Education', icon: 'school' },
     { id: 'Autre', name: 'Autre', icon: 'ellipse' },
   ];
 
-  // Fonction pour récupérer les événements depuis l'API
   const fetchEvents = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -69,7 +72,7 @@ const OrganizerEvents = () => {
         return;
       }
 
-      const response = await fetch('https://eventick.onrender.com/api/events/organizer/my-events', {
+      const response = await fetch(`${API_URL}/api/events/organizer/my-events`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -82,54 +85,9 @@ const OrganizerEvents = () => {
       }
 
       const data = await response.json();
-
-      // Transformer les données de l'API pour correspondre à notre interface
-      const transformedEvents: Event[] = data.map((event: any) => {
-        // Déterminer le statut basé sur isActive et la date
-        let status: EventStatus = 'draft';
-        const eventDate = new Date(event.date);
-        const now = new Date();
-
-        if (event.isActive) {
-          status = eventDate > now ? 'published' : 'completed';
-        }
-
-        // Transformer les tickets
-        const tickets: TicketType[] = event.ticket.map((ticket: any) => ({
-          id: ticket._id,
-          name: ticket.type,
-          price: 0, // L'API ne semble pas fournir de prix, à adapter si disponible
-          quantity: ticket.totalTickets,
-          sold: ticket.totalTickets - ticket.availableTickets,
-        }));
-
-        return {
-          id: event._id,
-          title: event.title,
-          description: event.description,
-          date: new Date(event.date).toLocaleDateString('fr-FR', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-          }),
-          time: new Date(event.time).toLocaleTimeString('fr-FR', {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
-          location: event.location,
-          category: event.category,
-          image: event.image,
-          status: status,
-          isActive: event.isActive,
-          totalTickets: event.totalTickets,
-          availableTickets: event.availableTickets,
-          tickets: tickets,
-          totalRevenue: tickets.reduce((total, ticket) => total + (ticket.price * ticket.sold), 0),
-        };
-      });
-
-      setEvents(transformedEvents);
-      setFilteredEvents(transformedEvents);
+      console.log("📊 Events data:", data);
+      setEvents(data);
+      setFilteredEvents(data);
     } catch (error) {
       console.error('Erreur lors de la récupération des événements:', error);
       Alert.alert("Erreur", "Impossible de charger les événements");
@@ -139,56 +97,47 @@ const OrganizerEvents = () => {
     }
   };
 
-  // Charger les événements au montage du composant
   useEffect(() => {
     fetchEvents();
   }, []);
 
-  // Rafraîchir manuellement
   const handleRefresh = () => {
     setRefreshing(true);
     fetchEvents();
   };
 
-  // Calculer le revenu total pour un événement
-  const calculateTotalRevenue = (tickets: TicketType[]) => {
-    return tickets.reduce((total, ticket) => total + (ticket.price * ticket.sold), 0);
-  };
-
-  // Appliquer les filtres
   const applyFilters = () => {
     let result = [...events];
 
-    // Filtre par statut
+    // Filter by status
     if (selectedStatus !== 'all') {
-      result = result.filter(event => event.status === selectedStatus);
+      result = result.filter(event => 
+        selectedStatus === 'active' ? event.isActive : !event.isActive
+      );
     }
 
-    // Filtre par catégorie
+    // Filter by category
     if (selectedCategory !== 'all') {
       result = result.filter(event => event.category === selectedCategory);
     }
 
-    // Filtre par recherche
+    // Filter by search query
     if (searchQuery) {
       result = result.filter(event =>
         event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.location.toLowerCase().includes(searchQuery.toLowerCase())
+        event.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.description.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
-    // Appliquer le tri
+    // Sort events
     result.sort((a, b) => {
       if (sortOption === 'date') {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
-      } else if (sortOption === 'popularity') {
-        const aSold = a.tickets.reduce((total, ticket) => total + ticket.sold, 0);
-        const bSold = b.tickets.reduce((total, ticket) => total + ticket.sold, 0);
-        return bSold - aSold;
+      } else if (sortOption === 'sales') {
+        return (b.ticketsSold || 0) - (a.ticketsSold || 0);
       } else {
-        const aRevenue = calculateTotalRevenue(a.tickets);
-        const bRevenue = calculateTotalRevenue(b.tickets);
-        return bRevenue - aRevenue;
+        return (b.revenue || 0) - (a.revenue || 0);
       }
     });
 
@@ -200,35 +149,46 @@ const OrganizerEvents = () => {
   const handleDelete = async (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      const response = await fetch(`https://eventick.onrender.com/api/events/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+    Alert.alert(
+      "Supprimer l'événement",
+      "Êtes-vous sûr de vouloir supprimer cet événement ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const token = await AsyncStorage.getItem("token");
+              const response = await fetch(`${API_URL}/api/events/${id}`, {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              });
 
-      if (response.ok) {
-        // Mettre à jour la liste des événements localement
-        setEvents(events.filter(event => event.id !== id));
-        Alert.alert("Succès", "Événement supprimé avec succès");
-      } else {
-        Alert.alert("Erreur", "Échec de la suppression de l'événement");
-      }
-    } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
-      Alert.alert("Erreur", "Une erreur s'est produite lors de la suppression");
-    }
+              if (response.ok) {
+                setEvents(events.filter(event => event._id !== id));
+                Alert.alert("Succès", "Événement supprimé avec succès");
+              } else {
+                Alert.alert("Erreur", "Échec de la suppression de l'événement");
+              }
+            } catch (error) {
+              console.error('Erreur lors de la suppression:', error);
+              Alert.alert("Erreur", "Une erreur s'est produite lors de la suppression");
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleCreateEvent = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/organizer/create-event');
+    router.push('/screens/CreateEvent')
   };
 
-  // Effet pour animer l'apparition
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -237,26 +197,45 @@ const OrganizerEvents = () => {
     }).start();
   }, []);
 
-  // Effet pour appliquer les filtres lors des changements
   useEffect(() => {
     applyFilters();
-  }, [searchQuery, sortOption, events]);
+  }, [searchQuery, sortOption, events, selectedStatus, selectedCategory]);
 
-  // Rendu d'un événement
+  const getEventStatus = (event: Event) => {
+    const eventDate = new Date(event.date);
+    const now = new Date();
+    
+    if (!event.isActive) {
+      return { status: 'completed', label: 'Terminé', color: 'bg-gray-500/20', textColor: 'text-gray-400' };
+    }
+    
+    if (eventDate > now) {
+      return { status: 'upcoming', label: 'À venir', color: 'bg-green-500/20', textColor: 'text-green-400' };
+    }
+    
+    // If event date is today or in the past but still active, consider it active
+    const timeDiff = eventDate.getTime() - now.getTime();
+    const hoursDiff = timeDiff / (1000 * 3600);
+    
+    if (hoursDiff <= 24 && hoursDiff >= -24) {
+      return { status: 'active', label: 'En cours', color: 'bg-blue-500/20', textColor: 'text-blue-400' };
+    }
+    
+    return eventDate > now ? 
+      { status: 'upcoming', label: 'À venir', color: 'bg-green-500/20', textColor: 'text-green-400' } :
+      { status: 'completed', label: 'Terminé', color: 'bg-gray-500/20', textColor: 'text-gray-400' };
+  };
+
   const renderEventItem = ({ item }: { item: Event }) => {
-    const totalRevenue = calculateTotalRevenue(item.tickets);
-    const totalSold = item.tickets.reduce((sum, ticket) => sum + ticket.sold, 0);
-    const totalTickets = item.tickets.reduce((sum, ticket) => sum + ticket.quantity, 0);
-    const progress = totalTickets > 0 ? (totalSold / totalTickets) * 100 : 0;
+    const statusInfo = getEventStatus(item);
+    const progress = item.totalTickets > 0 ? ((item.ticketsSold || 0) / item.totalTickets) * 100 : 0;
 
-    // Image par défaut si aucune image n'est fournie
     const imageSource = item.image
       ? { uri: item.image }
-      : { uri: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80' };
+      : { uri: 'https://res.cloudinary.com/daxa8aqwd/image/upload/v1755673452/qiwssa9y370si1agfrzp.jpg' };
 
     return (
       <Animated.View style={{ opacity: fadeAnim }} className="bg-white/5 rounded-xl p-4 mb-4 overflow-hidden">
-        {/* En-tête avec image et statut */}
         <View className="flex-row">
           <Image
             source={imageSource}
@@ -266,36 +245,35 @@ const OrganizerEvents = () => {
           <View className="flex-1">
             <View className="flex-row justify-between items-start mb-1">
               <Text className="text-white font-bold text-lg flex-1">{item.title}</Text>
-              <View className={`px-2 py-1 rounded-full ${item.status === 'published' ? 'bg-green-500/20' :
-                  item.status === 'completed' ? 'bg-gray-500/20' : 'bg-yellow-500/20'
-                }`}>
-                <Text className={`text-xs ${item.status === 'published' ? 'text-green-400' :
-                    item.status === 'completed' ? 'text-gray-400' : 'text-yellow-400'
-                  }`}>
-                  {item.status === 'published' ? 'Publié' :
-                    item.status === 'completed' ? 'Terminé' : 'Brouillon'}
+              <View className={`px-2 py-1 rounded-full ${statusInfo.color}`}>
+                <Text className={`text-xs ${statusInfo.textColor}`}>
+                  {statusInfo.label}
                 </Text>
               </View>
             </View>
 
-            {/* Date et lieu */}
             <View className="flex-row items-center mb-1">
               <Ionicons name="calendar" size={14} color="#68f2f4" />
-              <Text className="text-teal-400 ml-2 text-xs">{item.date} • {item.time}</Text>
+              <Text className="text-teal-400 ml-2 text-xs">
+                {new Date(item.date).toLocaleDateString('fr-FR', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric'
+                })} • {item.time}
+              </Text>
             </View>
             <View className="flex-row items-center mb-2">
               <Ionicons name="location" size={14} color="#68f2f4" />
               <Text className="text-teal-400 ml-2 text-xs">{item.location}</Text>
             </View>
 
-            {/* Barre de progression */}
             <View className="mt-2">
               <View className="flex-row justify-between mb-1">
                 <Text className="text-teal-400 text-xs">
                   {Math.round(progress)}% vendus
                 </Text>
                 <Text className="text-gray-400 text-xs">
-                  {totalSold}/{totalTickets} billets
+                  {item.ticketsSold || 0}/{item.totalTickets} billets
                 </Text>
               </View>
               <View className="w-full bg-gray-700 rounded-full h-2">
@@ -308,19 +286,32 @@ const OrganizerEvents = () => {
               </View>
             </View>
 
-            {/* Revenus */}
             <View className="flex-row justify-between items-center mt-2">
-              <Text className="text-white font-bold text-sm">{totalRevenue.toLocaleString()} MRO</Text>
+              <Text className="text-white font-bold text-sm">{item.revenue?.toLocaleString() || 0} MRO</Text>
               <Text className="text-teal-400 text-xs">Revenus générés</Text>
             </View>
+
+            {item.tickets && item.tickets.length > 0 && (
+              <View className="mt-2">
+                <Text className="text-teal-400 text-xs mb-1">Types de billets:</Text>
+                <View className="flex-row flex-wrap">
+                  {item.tickets.map((ticket, ticketIndex) => (
+                    <View key={ticketIndex} className="bg-teal-400/20 px-2 py-1 rounded mr-2 mb-1">
+                      <Text className="text-teal-400 text-xs">
+                        {ticket.type}: {ticket.sold || 0} vendus
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
-        {/* Actions */}
         <View className="flex-row justify-between mt-4 border-t border-white/10 pt-3">
           <TouchableOpacity
             className="flex-row items-center"
-            onPress={() => router.push(`/EditEvent/${item.id}`)}
+            onPress={() => router.push(`/EditEvent/${item._id}`)}
           >
             <Ionicons name="create" size={20} color="#68f2f4" />
             <Text className="text-teal-400 ml-1 text-xs">Modifier</Text>
@@ -328,7 +319,7 @@ const OrganizerEvents = () => {
 
           <TouchableOpacity
             className="flex-row items-center"
-            onPress={() => router.push(`/EventStatistics/${item.id}`)}
+            onPress={() => router.push(`/EventStatistics/${item._id}`)}
           >
             <Ionicons name="analytics" size={20} color="#68f2f4" />
             <Text className="text-teal-400 ml-1 text-xs">Statistiques</Text>
@@ -336,7 +327,7 @@ const OrganizerEvents = () => {
 
           <TouchableOpacity
             className="flex-row items-center"
-            onPress={() => handleDelete(item.id)}
+            onPress={() => handleDelete(item._id)}
           >
             <Ionicons name="trash" size={20} color="#ff6b6b" />
             <Text className="text-red-400 ml-1 text-xs">Supprimer</Text>
@@ -350,7 +341,8 @@ const OrganizerEvents = () => {
     return (
       <BackgroundWrapper>
         <View className="flex-1 justify-center items-center">
-          <Text className="text-white text-lg">Chargement des événements...</Text>
+          <ActivityIndicator size="large" color="#68f2f4" />
+          <Text className="text-white mt-4 text-lg">Chargement des événements...</Text>
         </View>
       </BackgroundWrapper>
     );
@@ -359,19 +351,17 @@ const OrganizerEvents = () => {
   return (
     <BackgroundWrapper>
       <View className="flex-1 px-4 pt-16">
-        {/* En-tête avec titre et bouton de création */}
         <View className="flex-row justify-between items-center mb-4">
           <Text className="text-white text-2xl font-bold">Événements</Text>
           <TouchableOpacity
             className="bg-teal-400 flex-row items-center py-2 px-4 rounded-full"
-            onPress={() => router.push("/screens/CreateEvent")}
+            onPress={handleCreateEvent}
           >
             <Ionicons name="add" size={20} color="#001215" />
             <Text className="text-gray-900 font-bold ml-2">Créer</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Barre de recherche et filtres */}
         <View className="flex-row mb-4">
           <View className="flex-1 bg-white/10 rounded-xl px-4 py-2 mr-3 flex-row items-center">
             <Ionicons name="search" size={20} color="#68f2f4" />
@@ -397,18 +387,17 @@ const OrganizerEvents = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Liste des événements */}
         <FlatList
           data={filteredEvents}
           renderItem={renderEventItem}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item._id}
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshing={refreshing}
           onRefresh={handleRefresh}
           ListEmptyComponent={
             <View className="bg-white/5 rounded-xl p-8 items-center justify-center mt-4">
               <Ionicons name="calendar" size={48} color="#68f2f4" />
-              <Text className="text-white text-center mt-4">
+              <Text className="text-white text-center mt-4 text-lg">
                 Aucun événement trouvé
               </Text>
               <Text className="text-teal-400 text-center mt-2">
@@ -424,7 +413,8 @@ const OrganizerEvents = () => {
           }
         />
       </View>
-      {/* Modal des filtres */}
+
+      {/* Modal de filtrage */}
       <Modal
         visible={isFilterModalVisible}
         animationType="slide"
@@ -440,7 +430,6 @@ const OrganizerEvents = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Filtre par statut */}
             <Text className="text-teal-400 font-medium mb-2">Statut</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
               <View className="flex-row">
@@ -454,36 +443,26 @@ const OrganizerEvents = () => {
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  className={`p-3 rounded-xl mr-3 ${selectedStatus === 'published' ? 'bg-teal-400' : 'bg-white/10'
+                  className={`p-3 rounded-xl mr-3 ${selectedStatus === 'active' ? 'bg-teal-400' : 'bg-white/10'
                     }`}
-                  onPress={() => setSelectedStatus('published')}
+                  onPress={() => setSelectedStatus('active')}
                 >
-                  <Text className={selectedStatus === 'published' ? 'text-gray-900 font-bold' : 'text-white'}>
-                    Publiés
+                  <Text className={selectedStatus === 'active' ? 'text-gray-900 font-bold' : 'text-white'}>
+                    Actifs
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  className={`p-3 rounded-xl mr-3 ${selectedStatus === 'draft' ? 'bg-teal-400' : 'bg-white/10'
+                  className={`p-3 rounded-xl mr-3 ${selectedStatus === 'inactive' ? 'bg-teal-400' : 'bg-white/10'
                     }`}
-                  onPress={() => setSelectedStatus('draft')}
+                  onPress={() => setSelectedStatus('inactive')}
                 >
-                  <Text className={selectedStatus === 'draft' ? 'text-gray-900 font-bold' : 'text-white'}>
-                    Brouillons
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className={`p-3 rounded-xl mr-3 ${selectedStatus === 'completed' ? 'bg-teal-400' : 'bg-white/10'
-                    }`}
-                  onPress={() => setSelectedStatus('completed')}
-                >
-                  <Text className={selectedStatus === 'completed' ? 'text-gray-900 font-bold' : 'text-white'}>
-                    Terminés
+                  <Text className={selectedStatus === 'inactive' ? 'text-gray-900 font-bold' : 'text-white'}>
+                    Inactifs
                   </Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
 
-            {/* Filtre par catégorie */}
             <Text className="text-teal-400 font-medium mb-2">Catégorie</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
               <View className="flex-row">
@@ -509,7 +488,6 @@ const OrganizerEvents = () => {
               </View>
             </ScrollView>
 
-            {/* Boutons d'action */}
             <View className="flex-row justify-between">
               <TouchableOpacity
                 className="bg-white/10 py-3 px-6 rounded-full flex-1 mr-3"
@@ -557,11 +535,11 @@ const OrganizerEvents = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className={`p-4 rounded-xl mb-3 ${sortOption === 'popularity' ? 'bg-teal-400' : 'bg-white/10'}`}
-              onPress={() => setSortOption('popularity')}
+              className={`p-4 rounded-xl mb-3 ${sortOption === 'sales' ? 'bg-teal-400' : 'bg-white/10'}`}
+              onPress={() => setSortOption('sales')}
             >
-              <Text className={`${sortOption === 'popularity' ? 'text-gray-900 font-bold' : 'text-white'}`}>
-                Popularité (ventes)
+              <Text className={`${sortOption === 'sales' ? 'text-gray-900 font-bold' : 'text-white'}`}>
+                Billets vendus
               </Text>
             </TouchableOpacity>
 
@@ -586,22 +564,5 @@ const OrganizerEvents = () => {
     </BackgroundWrapper>
   );
 };
-
-const styles = StyleSheet.create({
-  eventCard: {
-    shadowColor: '#68f2f4',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3
-  },
-  filterCard: {
-    shadowColor: '#68f2f4',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2
-  }
-});
 
 export default OrganizerEvents;
